@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(cargo clean:*)",
+      "Bash(npm run tauri dev:*)",
+      "Bash(npm install:*)",
+      "Bash(del:*)",
+      "Bash(python:*)",
+      "Bash(cargo check:*)",
+      "Bash(npx vite:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(start http://localhost:4000)",
+      "Bash(rustc:*)",
+      "Bash(sqlite3:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(tasklist:*)",
+      "Bash(timeout:*)",
+      "Bash(taskkill:*)",
+      "Bash(nul)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_fill_form"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
