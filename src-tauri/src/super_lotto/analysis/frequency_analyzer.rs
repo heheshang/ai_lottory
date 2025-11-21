@@ -4,8 +4,9 @@
 
 use crate::super_lotto::{
     models::{SuperLottoDraw, NumberFrequency, NumberZone},
-    errors::{Result, SuperLottoError},
+    errors::SuperLottoError,
 };
+use crate::super_lotto::Result;
 
 pub struct FrequencyAnalyzer {
     // TODO: Implement frequency analysis logic
@@ -23,7 +24,7 @@ impl FrequencyAnalyzer {
         zone: NumberZone,
     ) -> Result<Vec<NumberFrequency>> {
         // TODO: Implement frequency analysis
-        Err(SuperLottoError::Internal("Frequency analysis not implemented yet".to_string()))
+        Err(SuperLottoError::internal("Frequency analysis not implemented yet"))
     }
 
     pub async fn calculate_hot_scores(
@@ -32,6 +33,6 @@ impl FrequencyAnalyzer {
         total_draws: u32,
     ) -> Result<()> {
         // TODO: Implement hot score calculation
-        Err(SuperLottoError::Internal("Hot score calculation not implemented yet".to_string()))
+        Err(SuperLottoError::internal("Hot score calculation not implemented yet"))
     }
 }

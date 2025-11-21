@@ -32,7 +32,10 @@
       "mcp__sequential-thinking__sequentialthinking",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git rev-parse:*)"
+      "Bash(git rev-parse:*)",
+      "SlashCommand(/speckit.checklist:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []

@@ -15,4 +15,5 @@ pub mod analysis;
 
 // Re-export main types for easier access
 pub use models::*;
-pub use errors::{SuperLottoError, Result};
+pub use errors::SuperLottoError;
+pub use errors::SuperLottoResult as Result;
