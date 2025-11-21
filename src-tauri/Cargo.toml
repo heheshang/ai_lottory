@@ -17,11 +17,16 @@ serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 thiserror = "1.0"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid", "migrate"] }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid", "migrate", "json"] }
 chrono = { version = "0.4", features = ["serde"] }
 argon2 = "0.5"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 rand = "0.8"
+
+# Super Lotto specific dependencies
+polars = { version = "0.39", features = ["lazy", "temporal", "strings"] }
+nalgebra = "0.33"
+statrs = "0.16"
 
 [features]
 # by default Tauri runs in production mode

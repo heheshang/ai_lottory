@@ -5,6 +5,7 @@ mod commands;
 mod models;
 mod services;
 mod database;
+mod super_lotto;
 
 use database::connection::establish_connection;
 
@@ -32,6 +33,15 @@ async fn main() {
             commands::analysis::get_hot_numbers,
             commands::analysis::get_cold_numbers,
             commands::analysis::get_number_statistics,
+            // Super Lotto commands
+            super_lotto::commands::get_super_lotto_draws,
+            super_lotto::commands::import_super_lotto_draws,
+            super_lotto::commands::analyze_hot_numbers,
+            super_lotto::commands::analyze_cold_numbers,
+            super_lotto::commands::get_pattern_analysis,
+            super_lotto::commands::generate_prediction,
+            super_lotto::commands::get_predictions,
+            super_lotto::commands::validate_prediction,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

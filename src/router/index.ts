@@ -8,6 +8,12 @@ const History = () => import('@/views/History.vue')
 const HotNumbers = () => import('@/views/HotNumbers.vue')
 const ColdNumbers = () => import('@/views/ColdNumbers.vue')
 
+// Super Lotto views
+const SuperLottoHistory = () => import('@/views/SuperLottoHistory.vue')
+const HotColdAnalysis = () => import('@/views/HotColdAnalysis.vue')
+const PredictionDashboard = () => import('@/views/PredictionDashboard.vue')
+const PatternAnalysis = () => import('@/views/PatternAnalysis.vue')
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -56,6 +62,43 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       title: 'Cold Numbers - AI Lottery Prediction'
+    }
+  },
+  // Super Lotto routes
+  {
+    path: '/super-lotto/history',
+    name: 'SuperLottoHistory',
+    component: SuperLottoHistory,
+    meta: {
+      requiresAuth: true,
+      title: 'Super Lotto History - AI Lottery Prediction'
+    }
+  },
+  {
+    path: '/super-lotto/hot-cold',
+    name: 'HotColdAnalysis',
+    component: HotColdAnalysis,
+    meta: {
+      requiresAuth: true,
+      title: 'Hot & Cold Analysis - AI Lottery Prediction'
+    }
+  },
+  {
+    path: '/super-lotto/prediction',
+    name: 'PredictionDashboard',
+    component: PredictionDashboard,
+    meta: {
+      requiresAuth: true,
+      title: 'Prediction Dashboard - AI Lottery Prediction'
+    }
+  },
+  {
+    path: '/super-lotto/patterns',
+    name: 'PatternAnalysis',
+    component: PatternAnalysis,
+    meta: {
+      requiresAuth: true,
+      title: 'Pattern Analysis - AI Lottery Prediction'
     }
   }
 ]

@@ -21,7 +21,18 @@
       "Bash(nul)",
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_snapshot",
-      "mcp__playwright__browser_fill_form"
+      "mcp__playwright__browser_fill_form",
+      "Bash(.specify/scripts/powershell/setup-plan.ps1 -Json)",
+      "Bash(bash:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "WebSearch",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git rev-parse:*)"
     ],
     "deny": [],
     "ask": []
