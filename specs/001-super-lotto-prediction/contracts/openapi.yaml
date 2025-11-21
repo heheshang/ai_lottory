@@ -1,0 +1,1047 @@
+openapi: 3.0.3
+info:
+  title: Super Lotto Prediction API
+  description: API for Super Lotto (大乐透) lottery prediction and analysis functionality
+  version: 1.0.0
+  contact:
+    name: AI Lottery Prediction App
+  license:
+    name: MIT
+
+servers:
+  - url: tauri://localhost
+    description: Tauri Desktop Application
+
+paths:
+  # Super Lotto Draw Management
+  /super-lotto/draws:
+    get:
+      summary: Get Super Lotto historical draws
+      description: Retrieve paginated historical Super Lotto drawing data
+      operationId: getSuperLottoDraws
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of draws to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          description: Number of draws to skip for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: start_date
+          in: query
+          description: Filter draws from this date (ISO 8601)
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          description: Filter draws until this date (ISO 8601)
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: draw_number
+          in: query
+          description: Filter by specific draw number
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful retrieval of Super Lotto draws
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  draws:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SuperLottoDraw'
+                  total:
+                    type: integer
+                    description: Total number of draws matching criteria
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      summary: Add new Super Lotto draw
+      description: Add a new Super Lotto drawing result to the database
+      operationId: addSuperLottoDraw
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSuperLottoDraw'
+      responses:
+        '201':
+          description: Super Lotto draw successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuperLottoDraw'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Draw with this date already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /super-lotto/draws/batch:
+    post:
+      summary: Batch import Super Lotto draws
+      description: Import multiple Super Lotto draws at once for bulk data import
+      operationId: importSuperLottoDraws
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                draws:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CreateSuperLottoDraw'
+                  minItems: 1
+                  maxItems: 1000
+                validate_only:
+                  type: boolean
+                  default: false
+                  description: Only validate draws without importing
+      responses:
+        '200':
+          description: Batch import results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imported:
+                    type: integer
+                    description: Number of successfully imported draws
+                  failed:
+                    type: integer
+                    description: Number of failed imports
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ImportError'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Number Analysis
+  /super-lotto/analysis/hot-numbers:
+    get:
+      summary: Get hot number analysis
+      description: Retrieve hot number analysis based on frequency and recency
+      operationId: getHotNumbers
+      parameters:
+        - name: days
+          in: query
+          description: Analysis period in days
+          required: false
+          schema:
+            type: integer
+            minimum: 7
+            maximum: 365
+            default: 30
+        - name: zone
+          in: query
+          description: Number zone to analyze
+          required: false
+          schema:
+            type: string
+            enum: [FRONT, BACK, BOTH]
+            default: FRONT
+        - name: limit
+          in: query
+          description: Maximum number of hot numbers to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+        - name: min_threshold
+          in: query
+          description: Minimum hot score threshold
+          required: false
+          schema:
+            type: number
+            minimum: 0.0
+            maximum: 1.0
+            default: 0.5
+      responses:
+        '200':
+          description: Hot number analysis results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  numbers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NumberFrequency'
+                  analysis_period_days:
+                    type: integer
+                  total_draws_analyzed:
+                    type: integer
+                  generated_at:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /super-lotto/analysis/cold-numbers:
+    get:
+      summary: Get cold number analysis
+      description: Retrieve cold number analysis based on low frequency and long absence
+      operationId: getColdNumbers
+      parameters:
+        - name: days
+          in: query
+          description: Analysis period in days
+          required: false
+          schema:
+            type: integer
+            minimum: 7
+            maximum: 365
+            default: 30
+        - name: zone
+          in: query
+          description: Number zone to analyze
+          required: false
+          schema:
+            type: string
+            enum: [FRONT, BACK, BOTH]
+            default: FRONT
+        - name: limit
+          in: query
+          description: Maximum number of cold numbers to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+        - name: min_days_absent
+          in: query
+          description: Minimum days a number must be absent to be considered cold
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 7
+      responses:
+        '200':
+          description: Cold number analysis results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  numbers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NumberFrequency'
+                  analysis_period_days:
+                    type: integer
+                  total_draws_analyzed:
+                    type: integer
+                  generated_at:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /super-lotto/analysis/frequency:
+    get:
+      summary: Get comprehensive frequency analysis
+      description: Retrieve detailed frequency analysis for all numbers
+      operationId: getFrequencyAnalysis
+      parameters:
+        - name: days
+          in: query
+          description: Analysis period in days
+          required: false
+          schema:
+            type: integer
+            minimum: 7
+            maximum: 365
+            default: 90
+        - name: zone
+          in: query
+          description: Number zone to analyze
+          required: false
+          schema:
+            type: string
+            enum: [FRONT, BACK, BOTH]
+            default: FRONT
+        - name: include_details
+          in: query
+          description: Include detailed analysis for each number
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Frequency analysis results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analysis:
+                    type: object
+                    properties:
+                      zone:
+                        type: string
+                      period_days:
+                        type: integer
+                      total_draws:
+                        type: integer
+                      avg_frequency:
+                        type: number
+                      std_deviation:
+                        type: number
+                  numbers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NumberFrequency'
+                  generated_at:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Pattern Analysis
+  /super-lotto/analysis/patterns:
+    get:
+      summary: Get pattern analysis results
+      description: Retrieve various pattern analysis results for prediction
+      operationId: getPatternAnalysis
+      parameters:
+        - name: pattern_type
+          in: query
+          description: Type of pattern analysis to perform
+          required: false
+          schema:
+            type: string
+            enum: [CONSECUTIVE_NUMBERS, GAP_PATTERNS, ODD_EVEN_DISTRIBUTION, SUM_RANGES, POSITION_PATTERNS, ALL]
+            default: ALL
+        - name: days
+          in: query
+          description: Analysis period in days
+          required: false
+          schema:
+            type: integer
+            minimum: 7
+            maximum: 365
+            default: 90
+        - name: min_occurrences
+          in: query
+          description: Minimum occurrences for pattern to be considered significant
+          required: false
+          schema:
+            type: integer
+            minimum: 2
+            default: 3
+      responses:
+        '200':
+          description: Pattern analysis results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  patterns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PatternAnalysis'
+                  analysis_period_days:
+                    type: integer
+                  total_draws_analyzed:
+                    type: integer
+                  generated_at:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Prediction Generation
+  /super-lotto/predictions:
+    get:
+      summary: Get prediction results
+      description: Retrieve stored prediction results
+      operationId: getPredictions
+      parameters:
+        - name: algorithm
+          in: query
+          description: Filter by prediction algorithm
+          required: false
+          schema:
+            type: string
+            enum: [WEIGHTED_FREQUENCY, PATTERN_BASED, MARKOV_CHAIN, ENSEMBLE, HOT_NUMBERS, COLD_NUMBERS, POSITION_ANALYSIS]
+        - name: limit
+          in: query
+          description: Maximum number of predictions to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: min_confidence
+          in: query
+          description: Minimum confidence score filter
+          required: false
+          schema:
+            type: number
+            minimum: 0.0
+            maximum: 1.0
+            default: 0.0
+        - name: start_date
+          in: query
+          description: Filter predictions from this date
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          description: Filter predictions until this date
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Prediction results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  predictions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PredictionResult'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  filters_applied:
+                    type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      summary: Generate new prediction
+      description: Generate a new Super Lotto prediction using specified algorithm
+      operationId: generatePrediction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                algorithm:
+                  type: string
+                  enum: [WEIGHTED_FREQUENCY, PATTERN_BASED, MARKOV_CHAIN, ENSEMBLE, HOT_NUMBERS, COLD_NUMBERS, POSITION_ANALYSIS]
+                  description: Algorithm to use for prediction
+                analysis_period_days:
+                  type: integer
+                  minimum: 7
+                  maximum: 365
+                  default: 90
+                  description: Number of days of historical data to analyze
+                custom_parameters:
+                  type: object
+                  description: Algorithm-specific parameters
+                include_reasoning:
+                  type: boolean
+                  default: true
+                  description: Include detailed reasoning for each number
+      responses:
+        '201':
+          description: Prediction successfully generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /super-lotto/predictions/{id}/validate:
+    post:
+      summary: Validate prediction against actual results
+      description: Mark a prediction as validated against actual draw results
+      operationId: validatePrediction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Prediction ID to validate
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actual_draw:
+                  $ref: '#/components/schemas/SuperLottoDraw'
+                hit_count:
+                  type: integer
+                  minimum: 0
+                  maximum: 7
+                  description: Number of correctly predicted numbers
+                notes:
+                  type: string
+                  description: Additional notes about validation
+      responses:
+        '200':
+          description: Prediction validation results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prediction_id:
+                    type: integer
+                  hit_rate:
+                    type: number
+                    description: Hit rate as percentage (0.0-100.0)
+                  front_hits:
+                    type: integer
+                  back_hits:
+                    type: integer
+                  total_hits:
+                    type: integer
+                  validation_date:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Prediction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Statistics and Analytics
+  /super-lotto/statistics/accuracy:
+    get:
+      summary: Get prediction accuracy statistics
+      description: Retrieve accuracy statistics for prediction algorithms
+      operationId: getAccuracyStatistics
+      parameters:
+        - name: algorithm
+          in: query
+          description: Filter by specific algorithm
+          required: false
+          schema:
+            type: string
+            enum: [WEIGHTED_FREQUENCY, PATTERN_BASED, MARKOV_CHAIN, ENSEMBLE, HOT_NUMBERS, COLD_NUMBERS, POSITION_ANALYSIS]
+        - name: days
+          in: query
+          description: Statistics period in days
+          required: false
+          schema:
+            type: integer
+            minimum: 7
+            maximum: 365
+            default: 90
+        - name: include_details
+          in: query
+          description: Include detailed prediction-by-prediction analysis
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Accuracy statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  overall_statistics:
+                    type: object
+                    properties:
+                      total_predictions:
+                        type: integer
+                      validated_predictions:
+                        type: integer
+                      average_hit_rate:
+                        type: number
+                      best_hit_rate:
+                        type: number
+                      worst_hit_rate:
+                        type: number
+                      accuracy_trend:
+                        type: string
+                        enum: [IMPROVING, DECLINING, STABLE]
+                  algorithm_statistics:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        algorithm:
+                          type: string
+                        predictions_count:
+                          type: integer
+                        average_hit_rate:
+                          type: number
+                        confidence_correlation:
+                          type: number
+                        period_days:
+                            type: integer
+                  generated_at:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /super-lotto/statistics/distribution:
+    get:
+      summary: Get number distribution statistics
+      description: Retrieve comprehensive distribution statistics for all numbers
+      operationId: getDistributionStatistics
+      parameters:
+        - name: zone
+          in: query
+          description: Number zone to analyze
+          required: false
+          schema:
+            type: string
+            enum: [FRONT, BACK, BOTH]
+            default: FRONT
+        - name: days
+          in: query
+          description: Analysis period in days
+          required: false
+          schema:
+            type: integer
+            minimum: 7
+            maximum: 365
+            default: 365
+      responses:
+        '200':
+          description: Distribution statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  zone:
+                    type: string
+                  analysis_period_days:
+                    type: integer
+                  total_draws:
+                    type: integer
+                  frequency_distribution:
+                    type: object
+                    properties:
+                      mean:
+                        type: number
+                      median:
+                        type: number
+                      mode:
+                        type: array
+                        items:
+                          type: integer
+                      standard_deviation:
+                        type: number
+                      variance:
+                        type: number
+                      range:
+                        type: object
+                        properties:
+                          min:
+                            type: integer
+                          max:
+                            type: integer
+                  positional_analysis:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        position:
+                          type: integer
+                        most_frequent:
+                          type: array
+                          items:
+                            type: integer
+                        average_value:
+                          type: number
+                  gap_analysis:
+                    type: object
+                    properties:
+                      average_gap:
+                        type: number
+                      longest_gap:
+                        type: integer
+                      shortest_gap:
+                        type: integer
+                      current_longest_gap:
+                        type: integer
+                  generated_at:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    SuperLottoDraw:
+      type: object
+      required:
+        - id
+        - draw_date
+        - front_zone
+        - back_zone
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique identifier for the draw
+        draw_date:
+          type: string
+          format: date-time
+          description: Date and time of the draw
+        draw_number:
+          type: string
+          description: Official draw identifier or period
+        front_zone:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 35
+          minItems: 5
+          maxItems: 5
+          description: 5 winning numbers from 1-35
+        back_zone:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 12
+          minItems: 2
+          maxItems: 2
+          description: 2 bonus numbers from 1-12
+        jackpot_amount:
+          type: number
+          format: double
+          description: Jackpot amount in local currency
+        winners_count:
+          type: integer
+          description: Number of jackpot winners
+        sum_front:
+          type: integer
+          description: Sum of front zone numbers
+        odd_count_front:
+          type: integer
+          description: Count of odd numbers in front zone
+        even_count_front:
+          type: integer
+          description: Count of even numbers in front zone
+        has_consecutive_front:
+          type: boolean
+          description: Whether front zone contains consecutive numbers
+        created_at:
+          type: string
+          format: date-time
+          description: When the draw was added to the system
+
+    CreateSuperLottoDraw:
+      type: object
+      required:
+        - draw_date
+        - front_zone
+        - back_zone
+      properties:
+        draw_date:
+          type: string
+          format: date-time
+          description: Date and time of the draw
+        draw_number:
+          type: string
+          description: Official draw identifier or period
+        front_zone:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 35
+          minItems: 5
+          maxItems: 5
+          description: 5 winning numbers from 1-35
+        back_zone:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 12
+          minItems: 2
+          maxItems: 2
+          description: 2 bonus numbers from 1-12
+        jackpot_amount:
+          type: number
+          format: double
+          description: Jackpot amount in local currency
+        winners_count:
+          type: integer
+          description: Number of jackpot winners
+
+    NumberFrequency:
+      type: object
+      required:
+        - number
+        - zone
+        - frequency
+        - hot_score
+        - cold_score
+      properties:
+        number:
+          type: integer
+          description: Lottery number
+        zone:
+          type: string
+          enum: [FRONT, BACK]
+          description: Number zone
+        frequency:
+          type: integer
+          description: Total appearances in analyzed period
+        last_seen:
+          type: string
+          format: date-time
+          description: Last date the number was drawn
+        hot_score:
+          type: number
+          format: double
+          minimum: 0.0
+          description: Hot score (higher = hotter)
+        cold_score:
+          type: number
+          format: double
+          minimum: 0.0
+          description: Cold score (higher = colder)
+        average_gap:
+          type: number
+          format: double
+          description: Average number of draws between appearances
+        current_gap:
+          type: integer
+          description: Number of draws since last appearance
+        period_days:
+          type: integer
+          description: Analysis period in days
+        updated_at:
+          type: string
+          format: date-time
+          description: When the frequency was last updated
+
+    PatternAnalysis:
+      type: object
+      required:
+        - id
+        - pattern_type
+        - analysis_data
+        - confidence_score
+      properties:
+        id:
+          type: integer
+          format: int64
+        pattern_type:
+          type: string
+          enum: [CONSECUTIVE_NUMBERS, GAP_PATTERNS, ODD_EVEN_DISTRIBUTION, SUM_RANGES, POSITION_PATTERNS, ZONE_PATTERNS]
+          description: Type of pattern analysis
+        analysis_data:
+          type: object
+          description: Pattern-specific analysis data
+        confidence_score:
+          type: number
+          format: double
+          minimum: 0.0
+          maximum: 1.0
+          description: Confidence score for the pattern analysis
+        sample_size:
+          type: integer
+          description: Number of draws analyzed
+        period_days:
+          type: integer
+          description: Analysis period in days
+        created_at:
+          type: string
+          format: date-time
+
+    PredictionResult:
+      type: object
+      required:
+        - id
+        - algorithm
+        - front_numbers
+        - back_numbers
+        - confidence_score
+        - analysis_period_days
+        - sample_size
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        algorithm:
+          type: string
+          enum: [WEIGHTED_FREQUENCY, PATTERN_BASED, MARKOV_CHAIN, ENSEMBLE, HOT_NUMBERS, COLD_NUMBERS, POSITION_ANALYSIS]
+          description: Algorithm used for prediction
+        front_numbers:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 35
+          minItems: 5
+          maxItems: 5
+          description: 5 predicted front numbers
+        back_numbers:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 12
+          minItems: 2
+          maxItems: 2
+          description: 2 predicted back numbers
+        confidence_score:
+          type: number
+          format: double
+          minimum: 0.0
+          maximum: 1.0
+          description: Overall confidence in the prediction
+        reasoning:
+          type: object
+          description: Detailed reasoning for each number and overall prediction
+        analysis_period_days:
+          type: integer
+          description: Number of days of historical data analyzed
+        sample_size:
+          type: integer
+          description: Number of draws used for analysis
+        created_at:
+          type: string
+          format: date-time
+        is_validated:
+          type: boolean
+          description: Whether prediction has been validated against actual results
+
+    ImportError:
+      type: object
+      properties:
+        index:
+          type: integer
+          description: Index of the failed import in the batch
+        draw:
+          $ref: '#/components/schemas/CreateSuperLottoDraw'
+        error:
+          type: string
+          description: Error message explaining the failure
+        error_code:
+          type: string
+          enum: [VALIDATION_ERROR, DUPLICATE_DRAW, INVALID_DATE, INVALID_NUMBERS, DATABASE_ERROR]
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+        error_code:
+          type: string
+          description: Machine-readable error code
+        details:
+          type: object
+          description: Additional error details
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid parameters or data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+
+security:
+  - ApiKeyAuth: []
