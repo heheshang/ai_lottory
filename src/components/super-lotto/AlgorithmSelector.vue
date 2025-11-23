@@ -132,7 +132,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { PredictionAlgorithm } from '@/stores/superLotto'
+
+// Define types locally to avoid circular dependencies
+type PredictionAlgorithm = 'WEIGHTED_FREQUENCY' | 'PATTERN_BASED' | 'MARKOV_CHAIN' | 'ENSEMBLE' | 'HOT_NUMBERS' | 'COLD_NUMBERS' | 'POSITION_ANALYSIS'
 
 interface Props {
   modelValue: PredictionAlgorithm

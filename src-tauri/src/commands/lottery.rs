@@ -1,4 +1,4 @@
-use crate::models::lottery::{NewLotteryDraw, LotterySearchQuery, LotteryDrawResponse};
+use crate::models::lottery::{LotteryDrawResponse, LotterySearchQuery, NewLotteryDraw};
 use crate::services::LotteryService;
 use sqlx::Pool;
 use tauri::State;

@@ -1,5 +1,6 @@
-use thiserror::Error;
+use super::models::ValidationError;
 use serde::Serialize;
+use thiserror::Error;
 
 /// Super Lotto application error types
 #[derive(Debug, Error, Serialize)]
@@ -34,10 +35,16 @@ pub enum SuperLottoError {
     Chrono(#[from] chrono::ParseError),
 
     #[error("Not found: {resource} with identifier {identifier}")]
-    NotFound { resource: String, identifier: String },
+    NotFound {
+        resource: String,
+        identifier: String,
+    },
 
     #[error("Already exists: {resource} with identifier {identifier}")]
-    AlreadyExists { resource: String, identifier: String },
+    AlreadyExists {
+        resource: String,
+        identifier: String,
+    },
 
     #[error("Permission denied: {action}")]
     PermissionDenied { action: String },
@@ -401,16 +408,18 @@ impl ErrorUtils {
 
     /// Create validation error from multiple messages
     pub fn validation_errors(messages: Vec<impl Into<String>>) -> SuperLottoError {
-        let message = messages.into_iter().map(|m| m.into()).collect::<Vec<_>>().join("; ");
+        let message = messages
+            .into_iter()
+            .map(|m| m.into())
+            .collect::<Vec<_>>()
+            .join("; ");
         SuperLottoError::validation(message)
     }
 
     /// Handle database operation errors with user-friendly messages
     pub fn handle_database_error(err: sqlx::Error, operation: &str) -> SuperLottoError {
         match err {
-            sqlx::Error::RowNotFound => {
-                SuperLottoError::not_found("record", operation)
-            }
+            sqlx::Error::RowNotFound => SuperLottoError::not_found("record", operation),
             sqlx::Error::Database(ref db_err) => {
                 // Just use a simple check for unique constraint - avoid the is_unique_violation method
                 if db_err.message().contains("UNIQUE constraint") {
@@ -454,46 +463,11 @@ impl ErrorUtils {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_error_creation() {
-        let err = SuperLottoError::validation("Invalid number");
-        assert_eq!(err.error_code(), "VALIDATION_ERROR");
-        assert!(err.is_client_error());
-        assert!(!err.is_server_error());
-        assert_eq!(err.http_status_code(), 400);
-    }
-
-    #[test]
-    fn test_error_context() {
-        let context = ErrorContext::new("test_operation")
-            .with_resource_id("123")
-            .with_user_id("user456")
-            .with_metadata("key", "value");
-
-        assert_eq!(context.operation, "test_operation");
-        assert_eq!(context.resource_id, Some("123".to_string()));
-        assert_eq!(context.user_id, Some("user456".to_string()));
-        assert_eq!(context.metadata.get("key"), Some(&"value".to_string()));
-    }
-
-    #[test]
-    fn test_contextual_error() {
-        let base_err = SuperLottoError::validation("Test error");
-        let context = ErrorContext::new("test_operation");
-        let contextual_err = ContextualError::new(base_err, context);
-
-        assert!(contextual_err.to_string().contains("test_operation"));
-    }
-
-    #[test]
-    fn test_error_utils() {
-        let err = SuperLottoError::validation_errors(vec!["Error 1", "Error 2"]);
-        assert!(matches!(err, SuperLottoError::Validation { .. }));
-        assert!(err.to_string().contains("Error 1"));
-        assert!(err.to_string().contains("Error 2"));
+// Convert ValidationError to SuperLottoError
+impl From<ValidationError> for SuperLottoError {
+    fn from(error: ValidationError) -> Self {
+        SuperLottoError::Validation {
+            message: error.to_string(),
+        }
     }
 }

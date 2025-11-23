@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NumberFrequency {
@@ -24,7 +24,7 @@ pub struct NumberStatistics {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AnalysisRequest {
     pub lottery_type: String,
-    pub days: Option<u32>, // Analysis period in days
+    pub days: Option<u32>,       // Analysis period in days
     pub draw_count: Option<u32>, // Number of recent draws to analyze
 }
 

@@ -1,278 +1,947 @@
+// Enhanced Super Lotto Pinia Store
+// Implements advanced state management patterns with proper typing, error handling, and performance optimization
+
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { invoke } from '@tauri-apps/api/tauri'
+import { ref, computed, reactive, watch } from 'vue'
+import type {
+  SuperLottoDraw,
+  PredictionResult,
+  HotNumberAnalysis,
+  ColdNumberAnalysis,
+  PatternAnalysis,
+  BatchPredictionRequest,
+  BatchPredictionResult,
+  AlgorithmId,
+  AlgorithmConfig,
+  LoadingState,
+  ErrorState,
+  SelectionState,
+  FilterState,
+  PaginationParams,
+  SearchParams,
+  ErrorInfo,
+  VALIDATION_RULES
+} from '@/types/superLotto'
 
-// TypeScript types for Super Lotto data
-export interface SuperLottoDraw {
-  id: number
-  draw_date: string
-  draw_number?: string
-  front_zone: number[]
-  back_zone: number[]
-  jackpot_amount?: number
-  winners_count?: number
-  sum_front: number
-  odd_count_front: number
-  even_count_front: number
-  has_consecutive_front: boolean
-  created_at: string
+import { useSuperLottoApi } from '@/api/superLotto'
+import { useErrorHandler } from '@/utils/errorHandler'
+
+// =============================================================================
+// Store Configuration
+// =============================================================================
+
+interface SuperLottoStoreConfig {
+  enableAutoRefresh: boolean
+  autoRefreshInterval: number
+  maxCacheSize: number
+  enablePersistence: boolean
+  debugMode: boolean
 }
 
-export interface NumberFrequency {
-  number: number
-  zone: 'FRONT' | 'BACK'
-  frequency: number
-  last_seen?: string
-  hot_score: number
-  cold_score: number
-  average_gap: number
-  current_gap: number
-  period_days: number
-  updated_at: string
+const DEFAULT_CONFIG: SuperLottoStoreConfig = {
+  enableAutoRefresh: false,
+  autoRefreshInterval: 300000, // 5 minutes
+  maxCacheSize: 1000,
+  enablePersistence: true,
+  debugMode: false
 }
 
-export interface PatternAnalysis {
-  id: number
-  pattern_type: string
-  analysis_data: any
-  confidence_score: number
-  sample_size: number
-  period_days: number
-  created_at: string
-}
-
-export interface PredictionResult {
-  id: number
-  algorithm: string
-  front_numbers: number[]
-  back_numbers: number[]
-  confidence_score: number
-  reasoning: any
-  analysis_period_days: number
-  sample_size: number
-  created_at: string
-  is_validated: boolean
-}
-
-export interface HistoryParams {
-  limit?: number
-  offset?: number
-  start_date?: string
-  end_date?: string
-  draw_number?: string
-}
-
-export interface AnalysisParams {
-  days: number
-  zone?: 'FRONT' | 'BACK' | 'BOTH'
-  limit?: number
-  min_threshold?: number
-}
-
-export interface PredictionParams {
-  algorithm: string
-  analysis_period_days?: number
-  custom_parameters?: any
-  include_reasoning?: boolean
-}
+// =============================================================================
+// Store Definition
+// =============================================================================
 
 export const useSuperLottoStore = defineStore('superLotto', () => {
-  // State
-  const loading = ref(false)
-  const error = ref<string | null>(null)
+  // =============================================================================
+  // Dependencies
+  // =============================================================================
+  const api = useSuperLottoApi()
+  const errorHandler = useErrorHandler()
 
-  // Historical data
+  // =============================================================================
+  // Configuration
+  // =============================================================================
+  const config = reactive<SuperLottoStoreConfig>({ ...DEFAULT_CONFIG })
+
+  // =============================================================================
+  // Core State
+  // =============================================================================
+
+  // Loading state management
+  const loadingState = reactive<LoadingState>({
+    loading: false,
+    loading_text: undefined,
+    progress: undefined,
+    cancellable: false
+  })
+
+  // Error state management
+  const errorState = reactive<ErrorState>({
+    has_error: false,
+    error_message: undefined,
+    error_code: undefined,
+    retry_count: 0,
+    can_retry: false
+  })
+
+  // Data state
   const draws = ref<SuperLottoDraw[]>([])
   const totalDraws = ref(0)
-
-  // Analysis results
-  const hotNumbers = ref<NumberFrequency[]>([])
-  const coldNumbers = ref<NumberFrequency[]>([])
+  const hotNumbers = ref<HotNumberAnalysis[]>([])
+  const coldNumbers = ref<ColdNumberAnalysis[]>([])
   const patterns = ref<PatternAnalysis[]>([])
   const predictions = ref<PredictionResult[]>([])
+  const algorithms = ref<AlgorithmConfig[]>([])
 
-  // Pagination
-  const currentPage = ref(1)
-  const pageSize = ref(100)
-  const totalPages = ref(0)
+  // UI State
+  const selectionState = reactive<SelectionState<string>>({
+    selected_items: [],
+    selected_ids: [],
+    last_selected: undefined,
+    selection_mode: 'single'
+  })
 
-  // Computed properties
+  const filterState = reactive<FilterState>({
+    active_filters: [],
+    saved_filters: [],
+    current_preset: undefined
+  })
+
+  // Pagination state
+  const pagination = reactive({
+    page: 1,
+    limit: 100,
+    total: 0,
+    has_next: false,
+    has_prev: false
+  })
+
+  // Search state
+  const searchState = reactive({
+    query: '',
+    active_search: false,
+    search_results: [] as SuperLottoDraw[],
+    search_suggestions: [] as string[]
+  })
+
+  // =============================================================================
+  // Cache Management
+  // =============================================================================
+  const cache = new Map<string, CacheEntry>()
+
+  interface CacheEntry {
+    data: any
+    timestamp: number
+    ttl: number
+  }
+
+  const setCache = (key: string, data: any, ttl: number = 300000) => {
+    cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    })
+
+    // Clean up old cache entries
+    if (cache.size > config.maxCacheSize) {
+      const oldestKey = Array.from(cache.keys())[0]
+      cache.delete(oldestKey)
+    }
+  }
+
+  const getCache = (key: string) => {
+    const entry = cache.get(key)
+    if (!entry) return null
+
+    if (Date.now() - entry.timestamp > entry.ttl) {
+      cache.delete(key)
+      return null
+    }
+
+    return entry.data
+  }
+
+  const clearCache = (pattern?: string) => {
+    if (pattern) {
+      const regex = new RegExp(pattern)
+      for (const key of cache.keys()) {
+        if (regex.test(key)) {
+          cache.delete(key)
+        }
+      }
+    } else {
+      cache.clear()
+    }
+  }
+
+  // =============================================================================
+  // Computed Properties
+  // =============================================================================
+
+  const isLoading = computed(() => loadingState.loading)
+  const hasError = computed(() => errorState.has_error)
+  const errorMessage = computed(() => errorState.error_message)
+  const canRetry = computed(() => errorState.can_retry && errorState.retry_count < 3)
+
+  const isDataLoaded = computed(() => draws.value.length > 0)
+  const hasPredictions = computed(() => predictions.value.length > 0)
+  const hasAnalysisData = computed(() =>
+    hotNumbers.value.length > 0 ||
+    coldNumbers.value.length > 0 ||
+    patterns.value.length > 0
+  )
+
   const filteredDraws = computed(() => {
-    return draws.value // Add filtering logic here when needed
+    let filtered = [...draws.value]
+
+    // Apply search filter
+    if (searchState.query) {
+      filtered = filtered.filter(draw =>
+        draw.draw_number.toString().includes(searchState.query) ||
+        draw.red_numbers.some(n => n.toString().includes(searchState.query)) ||
+        draw.blue_number.toString().includes(searchState.query)
+      )
+    }
+
+    // Apply date filters
+    filterState.active_filters.forEach(filter => {
+      if (filter.date_range) {
+        filtered = filtered.filter(draw => {
+          const drawDate = new Date(draw.draw_date)
+          const startDate = new Date(filter.date_range!.start_date)
+          const endDate = new Date(filter.date_range!.end_date)
+          return drawDate >= startDate && drawDate <= endDate
+        })
+      }
+    })
+
+    // Apply algorithm filters
+    if (filterState.active_filters.some(f => f.algorithm_ids)) {
+      const algorithmFilter = filterState.active_filters.find(f => f.algorithm_ids)
+      if (algorithmFilter?.algorithm_ids) {
+        // Filter based on predictions for these draws
+        filtered = filtered.filter(draw => {
+          return predictions.value.some(prediction =>
+            prediction.draw_number === draw.draw_number &&
+            algorithmFilter.algorithm_ids!.includes(prediction.algorithm_id)
+          )
+        })
+      }
+    }
+
+    return filtered
   })
 
-  const isDataLoaded = computed(() => {
-    return draws.value.length > 0
+  const paginatedDraws = computed(() => {
+    const start = (pagination.page - 1) * pagination.limit
+    const end = start + pagination.limit
+    return filteredDraws.value.slice(start, end)
   })
 
-  const hasAnalysisData = computed(() => {
-    return hotNumbers.value.length > 0 || coldNumbers.value.length > 0
+  const totalPages = computed(() =>
+    Math.ceil(filteredDraws.value.length / pagination.limit)
+  )
+
+  const validatedPredictions = computed(() =>
+    predictions.value.filter(p => p.is_validated)
+  )
+
+  const averagePredictionAccuracy = computed(() => {
+    const validated = validatedPredictions.value
+    if (validated.length === 0) return 0
+
+    const totalAccuracy = validated.reduce((sum, p) => sum + (p.accuracy || 0), 0)
+    return totalAccuracy / validated.length
   })
 
-  // Actions
-  async function fetchDraws(params: HistoryParams = {}) {
-    loading.value = true
-    error.value = null
+  const bestPrediction = computed(() => {
+    if (predictions.value.length === 0) return null
+    return predictions.value.reduce((best, current) =>
+      (current.confidence_score > best.confidence_score) ? current : best
+    )
+  })
 
+  const algorithmStats = computed(() => {
+    const stats = new Map<AlgorithmId, AlgorithmStats>()
+
+    predictions.value.forEach(prediction => {
+      if (!stats.has(prediction.algorithm_id)) {
+        stats.set(prediction.algorithm_id, {
+          algorithm_id: prediction.algorithm_id,
+          algorithm_name: prediction.algorithm_name,
+          count: 0,
+          total_confidence: 0,
+          average_confidence: 0,
+          max_confidence: 0,
+          validated_count: 0,
+          average_accuracy: 0
+        })
+      }
+
+      const stat = stats.get(prediction.algorithm_id)!
+      stat.count++
+      stat.total_confidence += prediction.confidence_score
+      stat.max_confidence = Math.max(stat.max_confidence, prediction.confidence_score)
+      stat.average_confidence = stat.total_confidence / stat.count
+
+      if (prediction.is_validated && prediction.accuracy) {
+        stat.validated_count++
+        stat.average_accuracy = ((stat.average_accuracy * (stat.validated_count - 1)) + prediction.accuracy) / stat.validated_count
+      }
+    })
+
+    return Array.from(stats.values())
+  })
+
+  interface AlgorithmStats {
+    algorithm_id: AlgorithmId
+    algorithm_name: string
+    count: number
+    total_confidence: number
+    average_confidence: number
+    max_confidence: number
+    validated_count: number
+    average_accuracy: number
+  }
+
+  // =============================================================================
+  // Loading State Management
+  // =============================================================================
+
+  const setLoading = (loading: boolean, text?: string, progress?: number, cancellable?: boolean) => {
+    loadingState.loading = loading
+    loadingState.loading_text = text
+    loadingState.progress = progress
+    loadingState.cancellable = cancellable || false
+  }
+
+  const withLoading = async <T>(operation: () => Promise<T>, loadingText?: string): Promise<T> => {
+    setLoading(true, loadingText)
     try {
-      const result = await invoke<any>('get_super_lotto_draws', params)
-      draws.value = result.draws || []
-      totalDraws.value = result.total || 0
-      currentPage.value = Math.floor((params.offset || 0) / (params.limit || 100)) + 1
-      totalPages.value = Math.ceil(totalDraws.value / (params.limit || 100))
-    } catch (err) {
-      error.value = `Failed to fetch draws: ${err}`
-      console.error('Error fetching draws:', err)
+      return await operation()
     } finally {
-      loading.value = false
+      setLoading(false)
     }
   }
 
-  async function importDraws(drawData: any[]) {
-    loading.value = true
-    error.value = null
+  // =============================================================================
+  // Error State Management
+  // =============================================================================
 
-    try {
-      const result = await invoke<any>('import_super_lotto_draws', { draws: drawData })
-      return result
-    } catch (err) {
-      error.value = `Failed to import draws: ${err}`
-      console.error('Error importing draws:', err)
-      throw err
-    } finally {
-      loading.value = false
+  const setError = (error: ErrorInfo) => {
+    errorState.has_error = true
+    errorState.error_message = error.message
+    errorState.error_code = error.code
+    errorState.can_retry = error.recoverable
+  }
+
+  const clearError = () => {
+    errorState.has_error = false
+    errorState.error_message = undefined
+    errorState.error_code = undefined
+    errorState.retry_count = 0
+    errorState.can_retry = false
+  }
+
+  const incrementRetryCount = () => {
+    errorState.retry_count++
+  }
+
+  // =============================================================================
+  // Data Operations
+  // =============================================================================
+
+  const fetchDraws = async (params: PaginationParams & SearchParams = {}) => {
+    const cacheKey = `draws:${JSON.stringify(params)}`
+    const cached = getCache(cacheKey)
+    if (cached) {
+      draws.value = cached.draws
+      totalDraws.value = cached.total
+      return cached
+    }
+
+    return withLoading(async () => {
+      clearError()
+
+      try {
+        const result = await api.getDraws(params)
+        if (result) {
+          draws.value = result.draws
+          totalDraws.value = result.total
+
+          // Update pagination
+          pagination.limit = params.limit || 100
+          pagination.page = Math.floor((params.offset || 0) / pagination.limit) + 1
+          pagination.total = result.total
+          pagination.has_next = pagination.page * pagination.limit < result.total
+          pagination.has_prev = pagination.page > 1
+
+          // Cache the result
+          setCache(cacheKey, result)
+        }
+        return result
+      } catch (error) {
+        incrementRetryCount()
+        throw error
+      }
+    }, '加载开奖数据...')
+  }
+
+  const fetchPredictions = async (params: SearchParams = {}) => {
+    return withLoading(async () => {
+      clearError()
+
+      try {
+        const result = await api.getPredictions(params)
+        if (result) {
+          predictions.value = result.predictions
+        }
+        return result
+      } catch (error) {
+        incrementRetryCount()
+        throw error
+      }
+    }, '加载预测数据...')
+  }
+
+  const analyzeHotNumbers = async (params: { days: number; zone?: string }) => {
+    const cacheKey = `hot_numbers:${JSON.stringify(params)}`
+    const cached = getCache(cacheKey)
+    if (cached) {
+      hotNumbers.value = cached
+      return cached
+    }
+
+    return withLoading(async () => {
+      clearError()
+
+      try {
+        const result = await api.analyzeHotNumbers(params)
+        if (result) {
+          hotNumbers.value = result
+          setCache(cacheKey, result)
+        }
+        return result
+      } catch (error) {
+        incrementRetryCount()
+        throw error
+      }
+    }, '分析热号...')
+  }
+
+  const analyzeColdNumbers = async (params: { days: number; zone?: string }) => {
+    const cacheKey = `cold_numbers:${JSON.stringify(params)}`
+    const cached = getCache(cacheKey)
+    if (cached) {
+      coldNumbers.value = cached
+      return cached
+    }
+
+    return withLoading(async () => {
+      clearError()
+
+      try {
+        const result = await api.analyzeColdNumbers(params)
+        if (result) {
+          coldNumbers.value = result
+          setCache(cacheKey, result)
+        }
+        return result
+      } catch (error) {
+        incrementRetryCount()
+        throw error
+      }
+    }, '分析冷号...')
+  }
+
+  const analyzePatterns = async (params: { days: number; pattern_types?: string[] }) => {
+    const cacheKey = `patterns:${JSON.stringify(params)}`
+    const cached = getCache(cacheKey)
+    if (cached) {
+      patterns.value = cached
+      return cached
+    }
+
+    return withLoading(async () => {
+      clearError()
+
+      try {
+        const result = await api.analyzePatterns(params)
+        if (result) {
+          patterns.value = result
+          setCache(cacheKey, result)
+        }
+        return result
+      } catch (error) {
+        incrementRetryCount()
+        throw error
+      }
+    }, '分析模式...')
+  }
+
+  const generatePrediction = async (params: {
+    algorithm: AlgorithmId
+    analysis_period_days?: number
+    custom_parameters?: Record<string, unknown>
+    include_reasoning?: boolean
+  }) => {
+    return withLoading(async () => {
+      clearError()
+
+      try {
+        const result = await api.generatePrediction(params)
+        if (result) {
+          predictions.value.unshift(result)
+        }
+        return result
+      } catch (error) {
+        incrementRetryCount()
+        throw error
+      }
+    }, '生成预测...')
+  }
+
+  const generateBatchPredictions = async (request: BatchPredictionRequest) => {
+    return withLoading(async () => {
+      clearError()
+
+      try {
+        const result = await api.generateBatchPredictions(request)
+        if (result) {
+          predictions.value.unshift(...result.predictions)
+        }
+        return result
+      } catch (error) {
+        incrementRetryCount()
+        throw error
+      }
+    }, '批量生成预测...', true)
+  }
+
+  // =============================================================================
+  // Selection Management
+  // =============================================================================
+
+  const selectDraw = (draw: SuperLottoDraw, mode: 'single' | 'multiple' = 'single') => {
+    selectionState.selection_mode = mode
+    selectionState.last_selected = draw
+
+    if (mode === 'single') {
+      selectionState.selected_items = [draw]
+      selectionState.selected_ids = [draw.id.toString()]
+    } else {
+      const id = draw.id.toString()
+      const index = selectionState.selected_ids.indexOf(id)
+
+      if (index > -1) {
+        selectionState.selected_ids.splice(index, 1)
+        selectionState.selected_items = selectionState.selected_items.filter(d => d.id !== draw.id)
+      } else {
+        selectionState.selected_ids.push(id)
+        selectionState.selected_items.push(draw)
+      }
     }
   }
 
-  async function analyzeHotNumbers(params: AnalysisParams) {
-    loading.value = true
-    error.value = null
+  const clearSelection = () => {
+    selectionState.selected_items = []
+    selectionState.selected_ids = []
+    selectionState.last_selected = undefined
+  }
 
-    try {
-      const result = await invoke<any>('analyze_hot_numbers', params)
-      hotNumbers.value = result.numbers || []
-      return result
-    } catch (err) {
-      error.value = `Failed to analyze hot numbers: ${err}`
-      console.error('Error analyzing hot numbers:', err)
-      throw err
-    } finally {
-      loading.value = false
+  const selectAll = () => {
+    selectionState.selected_items = [...filteredDraws.value]
+    selectionState.selected_ids = filteredDraws.value.map(d => d.id.toString())
+  }
+
+  // =============================================================================
+  // Filter Management
+  // =============================================================================
+
+  const addFilter = (filter: any) => {
+    filterState.active_filters.push(filter)
+    clearCache() // Clear cache when filters change
+  }
+
+  const removeFilter = (index: number) => {
+    filterState.active_filters.splice(index, 1)
+    clearCache() // Clear cache when filters change
+  }
+
+  const clearFilters = () => {
+    filterState.active_filters = []
+    filterState.current_preset = undefined
+    clearCache()
+  }
+
+  // =============================================================================
+  // Search Management
+  // =============================================================================
+
+  const search = (query: string) => {
+    searchState.query = query
+    searchState.active_search = query.length > 0
+  }
+
+  const clearSearch = () => {
+    searchState.query = ''
+    searchState.active_search = false
+    searchState.search_results = []
+  }
+
+  // =============================================================================
+  // Pagination Management
+  // =============================================================================
+
+  const setPage = (page: number) => {
+    pagination.page = Math.max(1, Math.min(page, totalPages.value))
+  }
+
+  const nextPage = () => {
+    if (pagination.has_next) {
+      setPage(pagination.page + 1)
     }
   }
 
-  async function analyzeColdNumbers(params: AnalysisParams) {
-    loading.value = true
-    error.value = null
-
-    try {
-      const result = await invoke<any>('analyze_cold_numbers', params)
-      coldNumbers.value = result.numbers || []
-      return result
-    } catch (err) {
-      error.value = `Failed to analyze cold numbers: ${err}`
-      console.error('Error analyzing cold numbers:', err)
-      throw err
-    } finally {
-      loading.value = false
+  const prevPage = () => {
+    if (pagination.has_prev) {
+      setPage(pagination.page - 1)
     }
   }
 
-  async function getPatternAnalysis(params: any) {
-    loading.value = true
-    error.value = null
+  const setLimit = (limit: number) => {
+    pagination.limit = limit
+    pagination.page = 1
+  }
 
-    try {
-      const result = await invoke<any>('get_pattern_analysis', params)
-      patterns.value = result.patterns || []
-      return result
-    } catch (err) {
-      error.value = `Failed to get pattern analysis: ${err}`
-      console.error('Error getting pattern analysis:', err)
-      throw err
-    } finally {
-      loading.value = false
+  // =============================================================================
+  // Data Management Utilities
+  // =============================================================================
+
+  const validateDrawNumbers = (redNumbers: number[], blueNumber: number) => {
+    const errors: string[] = []
+
+    // Validate red numbers
+    if (redNumbers.length !== VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.count) {
+      errors.push(`前区号码数量必须为${VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.count}个`)
+    }
+
+    if (new Set(redNumbers).size !== redNumbers.length) {
+      errors.push('前区号码不能重复')
+    }
+
+    for (const num of redNumbers) {
+      if (num < VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.range[0] ||
+          num > VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.range[1]) {
+        errors.push(`前区号码必须在${VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.range[0]}-${VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.range[1]}范围内`)
+      }
+    }
+
+    // Validate blue number
+    if (blueNumber < VALIDATION_RULES.SUPER_LOTTO.BLUE_NUMBER.range[0] ||
+        blueNumber > VALIDATION_RULES.SUPER_LOTTO.BLUE_NUMBER.range[1]) {
+      errors.push(`后区号码必须在${VALIDATION_RULES.SUPER_LOTTO.BLUE_NUMBER.range[0]}-${VALIDATION_RULES.SUPER_LOTTO.BLUE_NUMBER.range[1]}范围内`)
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
     }
   }
 
-  async function generatePrediction(params: PredictionParams) {
-    loading.value = true
-    error.value = null
+  const formatDrawDate = (date: string | Date, format: 'short' | 'long' = 'short') => {
+    const d = typeof date === 'string' ? new Date(date) : date
 
-    try {
-      const result = await invoke<any>('generate_prediction', params)
-      predictions.value.unshift(result)
-      return result
-    } catch (err) {
-      error.value = `Failed to generate prediction: ${err}`
-      console.error('Error generating prediction:', err)
-      throw err
-    } finally {
-      loading.value = false
+    if (format === 'short') {
+      return d.toLocaleDateString('zh-CN')
+    } else {
+      return d.toLocaleString('zh-CN')
     }
   }
 
-  async function fetchPredictions(params: any = {}) {
-    loading.value = true
-    error.value = null
+  const calculateDrawStatistics = (draws: SuperLottoDraw[]) => {
+    if (draws.length === 0) return null
 
-    try {
-      const result = await invoke<any>('get_predictions', params)
-      predictions.value = result.predictions || []
-      return result
-    } catch (err) {
-      error.value = `Failed to fetch predictions: ${err}`
-      console.error('Error fetching predictions:', err)
-      throw err
-    } finally {
-      loading.value = false
+    const stats = {
+      totalDraws: draws.length,
+      dateRange: {
+        earliest: formatDrawDate(draws[draws.length - 1].draw_date),
+        latest: formatDrawDate(draws[0].draw_date)
+      },
+      redNumberFrequency: new Map<number, number>(),
+      blueNumberFrequency: new Map<number, number>(),
+      averageJackpot: 0,
+      totalJackpot: 0
     }
+
+    let totalJackpot = 0
+    let jackpotCount = 0
+
+    draws.forEach(draw => {
+      // Count red numbers
+      draw.red_numbers.forEach(num => {
+        stats.redNumberFrequency.set(num, (stats.redNumberFrequency.get(num) || 0) + 1)
+      })
+
+      // Count blue number
+      stats.blueNumberFrequency.set(draw.blue_number, (stats.blueNumberFrequency.get(draw.blue_number) || 0) + 1)
+
+      // Sum jackpot
+      if (draw.jackpot_amount) {
+        totalJackpot += draw.jackpot_amount
+        jackpotCount++
+      }
+    })
+
+    stats.averageJackpot = jackpotCount > 0 ? totalJackpot / jackpotCount : 0
+    stats.totalJackpot = totalJackpot
+
+    return stats
   }
 
-  function clearError() {
-    error.value = null
-  }
+  // =============================================================================
+  // Store Reset
+  // =============================================================================
 
-  function resetStore() {
+  const resetStore = () => {
     draws.value = []
+    totalDraws.value = 0
     hotNumbers.value = []
     coldNumbers.value = []
     patterns.value = []
     predictions.value = []
-    error.value = null
-    loading.value = false
-    currentPage.value = 1
-    totalPages.value = 0
+    algorithms.value = []
+
+    clearError()
+    clearSelection()
+    clearFilters()
+    clearSearch()
+    clearCache()
+
+    pagination.page = 1
+    pagination.limit = 100
+    pagination.total = 0
+    pagination.has_next = false
+    pagination.has_prev = false
   }
 
+  // =============================================================================
+  // Persistence
+  // =============================================================================
+
+  const saveState = () => {
+    if (!config.enablePersistence) return
+
+    const stateToSave = {
+      selectionState: selectionState.selected_ids,
+      filterState: filterState.active_filters,
+      searchState: searchState.query,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit
+      }
+    }
+
+    localStorage.setItem('superLottoStore', JSON.stringify(stateToSave))
+  }
+
+  const loadState = () => {
+    if (!config.enablePersistence) return
+
+    try {
+      const savedState = localStorage.getItem('superLottoStore')
+      if (savedState) {
+        const state = JSON.parse(savedState)
+
+        if (state.selectionState) {
+          selectionState.selected_ids = state.selectionState
+        }
+
+        if (state.filterState) {
+          filterState.active_filters = state.filterState
+        }
+
+        if (state.searchState) {
+          searchState.query = state.searchState
+        }
+
+        if (state.pagination) {
+          pagination.page = state.pagination.page || 1
+          pagination.limit = state.pagination.limit || 100
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load saved state:', error)
+    }
+  }
+
+  // =============================================================================
+  // Auto-refresh
+  // =============================================================================
+
+  let autoRefreshTimer: NodeJS.Timeout | null = null
+
+  const startAutoRefresh = () => {
+    if (!config.enableAutoRefresh) return
+
+    stopAutoRefresh()
+    autoRefreshTimer = setInterval(async () => {
+      if (!isLoading.value) {
+        try {
+          await fetchDraws({ limit: pagination.limit, offset: (pagination.page - 1) * pagination.limit })
+        } catch (error) {
+          console.warn('Auto-refresh failed:', error)
+        }
+      }
+    }, config.autoRefreshInterval)
+  }
+
+  const stopAutoRefresh = () => {
+    if (autoRefreshTimer) {
+      clearInterval(autoRefreshTimer)
+      autoRefreshTimer = null
+    }
+  }
+
+  // =============================================================================
+  // Watchers
+  // =============================================================================
+
+  watch(
+    () => [selectionState.selected_ids, filterState.active_filters, searchState.query, pagination.page, pagination.limit],
+    saveState,
+    { deep: true }
+  )
+
+  // Auto-clear cache when data changes
+  watch(
+    () => [draws.value.length, predictions.value.length],
+    () => {
+      if (config.debugMode) {
+        console.log('Data changed, clearing cache')
+      }
+      clearCache()
+    }
+  )
+
+  // =============================================================================
+  // Return Store Interface
+  // =============================================================================
+
   return {
+    // Configuration
+    config,
+
     // State
-    loading,
-    error,
+    loadingState,
+    errorState,
     draws,
     totalDraws,
     hotNumbers,
     coldNumbers,
     patterns,
     predictions,
-    currentPage,
-    pageSize,
-    totalPages,
+    algorithms,
+    selectionState,
+    filterState,
+    searchState,
+    pagination,
 
     // Computed
-    filteredDraws,
+    isLoading,
+    hasError,
+    errorMessage,
+    canRetry,
     isDataLoaded,
+    hasPredictions,
     hasAnalysisData,
+    filteredDraws,
+    paginatedDraws,
+    totalPages,
+    validatedPredictions,
+    averagePredictionAccuracy,
+    bestPrediction,
+    algorithmStats,
 
-    // Actions
+    // Loading Management
+    setLoading,
+    withLoading,
+
+    // Error Management
+    setError,
+    clearError,
+    incrementRetryCount,
+
+    // Data Operations
     fetchDraws,
-    importDraws,
+    fetchPredictions,
     analyzeHotNumbers,
     analyzeColdNumbers,
-    getPatternAnalysis,
+    analyzePatterns,
     generatePrediction,
-    fetchPredictions,
-    clearError,
-    resetStore
+    generateBatchPredictions,
+
+    // Selection Management
+    selectDraw,
+    clearSelection,
+    selectAll,
+
+    // Filter Management
+    addFilter,
+    removeFilter,
+    clearFilters,
+
+    // Search Management
+    search,
+    clearSearch,
+
+    // Pagination Management
+    setPage,
+    nextPage,
+    prevPage,
+    setLimit,
+
+    // Utilities
+    validateDrawNumbers,
+    formatDrawDate,
+    calculateDrawStatistics,
+
+    // Cache Management
+    setCache,
+    getCache,
+    clearCache,
+
+    // Auto-refresh
+    startAutoRefresh,
+    stopAutoRefresh,
+
+    // Store Management
+    resetStore,
+    saveState,
+    loadState
   }
 })
+
+// =============================================================================
+// Store Initialization
+// =============================================================================
+
+export const initializeSuperLottoStore = async () => {
+  const store = useSuperLottoStore()
+
+  // Load persisted state
+  store.loadState()
+
+  // Start auto-refresh if enabled
+  store.startAutoRefresh()
+
+  // Initial data load
+  try {
+    await store.fetchDraws({ limit: 100 })
+  } catch (error) {
+    console.warn('Failed to load initial data:', error)
+  }
+
+  console.log('🎯 [Super Lotto Store] Enhanced store initialized successfully')
+}
+
+console.log('🎯 [Super Lotto Store] Enhanced Pinia store with advanced patterns loaded')

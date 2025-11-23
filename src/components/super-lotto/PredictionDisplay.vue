@@ -163,7 +163,20 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { PredictionResult } from '@/stores/superLotto'
+
+// Define types locally to avoid circular dependencies
+interface PredictionResult {
+  id: number
+  algorithm: string
+  front_numbers: number[]
+  back_numbers: number[]
+  confidence_score: number
+  reasoning: any
+  analysis_period_days: number
+  sample_size: number
+  created_at: string
+  is_validated: boolean
+}
 
 interface Props {
   prediction: PredictionResult
@@ -190,11 +203,11 @@ const showDetails = ref(props.showDetails)
 
 // Computed properties
 const frontNumbers = computed(() => {
-  return props.prediction.predicted_numbers.slice(0, 5)
+  return props.prediction.front_numbers || []
 })
 
 const backNumbers = computed(() => {
-  return props.prediction.predicted_numbers.slice(5, 7)
+  return props.prediction.back_numbers || []
 })
 
 const oddEvenRatio = computed(() => {

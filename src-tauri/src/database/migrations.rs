@@ -1,4 +1,4 @@
-use sqlx::{Pool, Sqlite, migrate::MigrateError, migrate::Migrator};
+use sqlx::{migrate::MigrateError, migrate::Migrator, Pool, Sqlite};
 
 // Embed migrations - path relative to crate root
 static MIGRATOR: Migrator = sqlx::migrate!("src/database/migrations");

@@ -1,12 +1,14 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use chrono::{DateTime, Utc};
+use crate::super_lotto::models::NumberVec;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct LotteryDraw {
     pub id: u32,
     pub draw_date: DateTime<Utc>,
-    pub winning_numbers: Vec<u32>,
+    #[sqlx(try_from = "String")]
+    pub winning_numbers: NumberVec,
     pub bonus_number: Option<u32>,
     pub jackpot_amount: Option<f64>,
     pub lottery_type: String, // e.g., "powerball", "megamillions", etc.

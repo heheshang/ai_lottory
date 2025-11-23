@@ -1,8 +1,10 @@
-use crate::models::analysis::{NumberFrequency, NumberStatistics, AnalysisRequest, HotNumbersResponse, ColdNumbersResponse};
+use crate::models::analysis::{
+    AnalysisRequest, ColdNumbersResponse, HotNumbersResponse, NumberFrequency, NumberStatistics,
+};
 use crate::models::lottery::{LotteryDraw, LotteryDrawDB};
-use sqlx::{Pool, Sqlite, Row};
 use anyhow::Result;
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, Utc};
+use sqlx::{Pool, Sqlite};
 use std::collections::HashMap;
 
 pub struct AnalysisService {
@@ -20,7 +22,11 @@ impl AnalysisService {
 
         // Sort by frequency (descending) and calculate hot scores
         let mut frequencies: Vec<NumberFrequency> = number_frequencies.into_values().collect();
-        frequencies.sort_by(|a, b| b.frequency.partial_cmp(&a.frequency).unwrap_or(std::cmp::Ordering::Equal));
+        frequencies.sort_by(|a, b| {
+            b.frequency
+                .partial_cmp(&a.frequency)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Calculate hot scores (higher frequency = higher hot score)
         let max_freq = frequencies.first().map(|f| f.frequency).unwrap_or(0);
@@ -53,7 +59,11 @@ impl AnalysisService {
 
         // Sort by frequency (ascending) and calculate cold scores
         let mut frequencies: Vec<NumberFrequency> = number_frequencies.into_values().collect();
-        frequencies.sort_by(|a, b| a.frequency.partial_cmp(&b.frequency).unwrap_or(std::cmp::Ordering::Equal));
+        frequencies.sort_by(|a, b| {
+            a.frequency
+                .partial_cmp(&b.frequency)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Calculate cold scores (lower frequency = higher cold score)
         let max_freq = frequencies.iter().map(|f| f.frequency).max().unwrap_or(0);
@@ -80,7 +90,11 @@ impl AnalysisService {
         })
     }
 
-    pub async fn get_number_statistics(&self, number: u32, lottery_type: &str) -> Result<NumberStatistics> {
+    pub async fn get_number_statistics(
+        &self,
+        number: u32,
+        lottery_type: &str,
+    ) -> Result<NumberStatistics> {
         let draws_db = sqlx::query_as::<_, LotteryDrawDB>(
             "SELECT id, draw_date, winning_numbers, bonus_number, jackpot_amount, lottery_type, created_at FROM lottery_draws WHERE lottery_type = ? ORDER BY draw_date ASC"
         )
@@ -135,7 +149,9 @@ impl AnalysisService {
             total_draws
         };
 
-        let average_gap = if gaps.is_empty() { 0.0 } else {
+        let average_gap = if gaps.is_empty() {
+            0.0
+        } else {
             gaps.iter().sum::<u32>() as f64 / gaps.len() as f64
         };
 
@@ -184,18 +200,24 @@ impl AnalysisService {
         Ok(draws)
     }
 
-    async fn calculate_number_frequencies(&self, draws: &[LotteryDraw]) -> Result<HashMap<u32, NumberFrequency>> {
+    async fn calculate_number_frequencies(
+        &self,
+        draws: &[LotteryDraw],
+    ) -> Result<HashMap<u32, NumberFrequency>> {
         let mut frequencies = HashMap::new();
 
         // Initialize frequency map for numbers 1-69 (common lottery range)
         for i in 1..=69 {
-            frequencies.insert(i, NumberFrequency {
-                number: i,
-                frequency: 0,
-                last_drawn: None,
-                hot_score: 0.0,
-                cold_score: 0.0,
-            });
+            frequencies.insert(
+                i,
+                NumberFrequency {
+                    number: i,
+                    frequency: 0,
+                    last_drawn: None,
+                    hot_score: 0.0,
+                    cold_score: 0.0,
+                },
+            );
         }
 
         // Count frequencies

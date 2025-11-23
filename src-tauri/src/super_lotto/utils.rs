@@ -93,7 +93,8 @@ impl SuperLottoUtils {
         let start_utc = start.with_timezone(&Utc);
         let end = Utc::now();
         let duration = end.signed_duration_since(start_utc);
-        let random_duration = duration.num_milliseconds() * rand::thread_rng().gen_range(0..=1) as i64;
+        let random_duration =
+            duration.num_milliseconds() * rand::thread_rng().gen_range(0..=1) as i64;
         start_utc + chrono::Duration::milliseconds(random_duration)
     }
 

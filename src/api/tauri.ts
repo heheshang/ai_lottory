@@ -227,9 +227,9 @@ export const analysisApi = {
       // Mock hot numbers analysis
       return {
         numbers: [
-          { number: 23, frequency: 15, last_drawn: '2024-01-15T00:00:00Z', hot_score: 9.5, cold_score: 2.1 },
-          { number: 34, frequency: 12, last_drawn: '2024-01-08T00:00:00Z', hot_score: 8.7, cold_score: 3.2 },
-          { number: 45, frequency: 11, last_drawn: '2024-01-15T00:00:00Z', hot_score: 8.3, cold_score: 3.8 }
+          { number: 23, frequency: 15, last_drawn: '2024-01-15T00:00:00Z', hot_score: 9.5, cold_score: 2.1, zone: 'FRONT' },
+          { number: 34, frequency: 12, last_drawn: '2024-01-08T00:00:00Z', hot_score: 8.7, cold_score: 3.2, zone: 'FRONT' },
+          { number: 45, frequency: 11, last_drawn: '2024-01-15T00:00:00Z', hot_score: 8.3, cold_score: 3.8, zone: 'FRONT' }
         ],
         analysis_period: 'Last 30 days',
         total_draws_analyzed: 100
@@ -248,9 +248,9 @@ export const analysisApi = {
       // Mock cold numbers analysis
       return {
         numbers: [
-          { number: 2, frequency: 3, last_drawn: '2023-12-01T00:00:00Z', hot_score: 1.2, cold_score: 8.9 },
-          { number: 7, frequency: 4, last_drawn: '2023-11-15T00:00:00Z', hot_score: 2.1, cold_score: 7.6 },
-          { number: 19, frequency: 5, last_drawn: '2023-12-10T00:00:00Z', hot_score: 3.0, cold_score: 6.8 }
+          { number: 2, frequency: 3, last_drawn: '2023-12-01T00:00:00Z', hot_score: 1.2, cold_score: 8.9, zone: 'FRONT' },
+          { number: 7, frequency: 4, last_drawn: '2023-11-15T00:00:00Z', hot_score: 2.1, cold_score: 7.6, zone: 'FRONT' },
+          { number: 19, frequency: 5, last_drawn: '2023-12-10T00:00:00Z', hot_score: 3.0, cold_score: 6.8, zone: 'FRONT' }
         ],
         analysis_period: 'Last 30 days',
         total_draws_analyzed: 100

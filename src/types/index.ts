@@ -52,6 +52,7 @@ export interface NumberFrequency {
   last_drawn?: string
   hot_score: number
   cold_score: number
+  zone?: string
 }
 
 export interface NumberStatistics {

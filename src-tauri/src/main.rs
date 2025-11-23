@@ -2,9 +2,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod database;
 mod models;
 mod services;
-mod database;
 mod super_lotto;
 
 use database::connection::establish_connection;
@@ -15,7 +15,9 @@ async fn main() {
 
     // Initialize database connection
     println!("🔵 [Tauri] Establishing database connection...");
-    let pool = establish_connection().await.expect("Failed to establish database connection");
+    let pool = establish_connection()
+        .await
+        .expect("Failed to establish database connection");
     println!("🔵 [Tauri] Database connection established successfully");
 
     println!("🔵 [Tauri] Building Tauri application...");
@@ -42,6 +44,11 @@ async fn main() {
             super_lotto::commands::generate_prediction,
             super_lotto::commands::get_predictions,
             super_lotto::commands::validate_prediction,
+            // One-Click Prediction Feature
+            super_lotto::commands::generate_all_predictions,
+            super_lotto::commands::get_prediction_comparison,
+            super_lotto::commands::get_unified_table_data,
+            super_lotto::commands::export_table_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

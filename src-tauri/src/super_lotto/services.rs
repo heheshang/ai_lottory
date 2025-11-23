@@ -2,9 +2,9 @@
 //!
 //! Business logic and data access layer for Super Lotto functionality.
 
-use sqlx::SqlitePool;
-use crate::super_lotto::{models::*, errors::SuperLottoError};
+use crate::super_lotto::errors::SuperLottoError;
 use crate::super_lotto::errors::SuperLottoResult as Result;
+use sqlx::SqlitePool;
 
 /// Main service for Super Lotto operations
 pub struct SuperLottoService {

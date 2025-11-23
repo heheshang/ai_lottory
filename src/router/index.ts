@@ -13,6 +13,7 @@ const SuperLottoHistory = () => import('@/views/SuperLottoHistory.vue')
 const HotColdAnalysis = () => import('@/views/HotColdAnalysis.vue')
 const PredictionDashboard = () => import('@/views/PredictionDashboard.vue')
 const PatternAnalysis = () => import('@/views/PatternAnalysis.vue')
+const OneClickPrediction = () => import('@/components/super-lotto/OneClickPrediction.vue')
 
 const routes: RouteRecordRaw[] = [
   {
@@ -99,6 +100,15 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       title: 'Pattern Analysis - AI Lottery Prediction'
+    }
+  },
+  {
+    path: '/super-lotto/one-click-prediction',
+    name: 'OneClickPrediction',
+    component: OneClickPrediction,
+    meta: {
+      requiresAuth: true,
+      title: 'One-Click Prediction - AI Lottery Prediction'
     }
   }
 ]

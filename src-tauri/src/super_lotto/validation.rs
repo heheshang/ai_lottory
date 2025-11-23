@@ -97,7 +97,10 @@ impl SuperLottoValidation {
         }
 
         // Add warnings for unusual patterns
-        result.warnings.extend(Self::check_unusual_patterns(&draw.front_zone, &draw.back_zone));
+        result.warnings.extend(Self::check_unusual_patterns(
+            &draw.front_zone,
+            &draw.back_zone,
+        ));
 
         result
     }
@@ -128,21 +131,19 @@ impl SuperLottoValidation {
         }
 
         // Try to parse date in common formats
-        let formats = [
-            "%Y-%m-%d",
-            "%Y/%m/%d",
-            "%Y-%m-%d %H:%M:%S",
-            "%Y%m%d",
-        ];
+        let formats = ["%Y-%m-%d", "%Y/%m/%d", "%Y-%m-%d %H:%M:%S", "%Y%m%d"];
 
         for format in formats.iter() {
-            if chrono::NaiveDateTime::parse_from_str(date_str, format).is_ok() ||
-               chrono::NaiveDate::parse_from_str(date_str, format).is_ok() {
+            if chrono::NaiveDateTime::parse_from_str(date_str, format).is_ok()
+                || chrono::NaiveDate::parse_from_str(date_str, format).is_ok()
+            {
                 return Ok(());
             }
         }
 
-        Err(ValidationResult::error("日期格式无效，请使用YYYY-MM-DD格式"))
+        Err(ValidationResult::error(
+            "日期格式无效，请使用YYYY-MM-DD格式",
+        ))
     }
 
     /// Validate front zone numbers (5 numbers from 1-35)
@@ -316,7 +317,10 @@ impl SuperLottoValidation {
     }
 
     /// Validate analysis parameters
-    pub fn validate_analysis_params(days: Option<u32>, min_occurrences: Option<u32>) -> ValidationResult {
+    pub fn validate_analysis_params(
+        days: Option<u32>,
+        min_occurrences: Option<u32>,
+    ) -> ValidationResult {
         let mut result = ValidationResult::success();
 
         if let Some(days_val) = days {
@@ -368,7 +372,8 @@ mod tests {
         assert!(SuperLottoValidation::validate_front_zone(&[1, 2, 3, 4, 5, 6]).is_err()); // Too many
         assert!(SuperLottoValidation::validate_front_zone(&[0, 2, 3, 4, 5]).is_err()); // Too small
         assert!(SuperLottoValidation::validate_front_zone(&[1, 2, 3, 4, 36]).is_err()); // Too large
-        assert!(SuperLottoValidation::validate_front_zone(&[1, 2, 3, 4, 1]).is_err()); // Duplicate
+        assert!(SuperLottoValidation::validate_front_zone(&[1, 2, 3, 4, 1]).is_err());
+        // Duplicate
     }
 
     #[test]

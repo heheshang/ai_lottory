@@ -1,4 +1,6 @@
-use crate::models::analysis::{AnalysisRequest, NumberStatistics, HotNumbersResponse, ColdNumbersResponse};
+use crate::models::analysis::{
+    AnalysisRequest, ColdNumbersResponse, HotNumbersResponse, NumberStatistics,
+};
 use crate::services::AnalysisService;
 use sqlx::Pool;
 use tauri::State;

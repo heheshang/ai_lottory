@@ -81,10 +81,21 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useSuperLottoStore } from '@/stores/superLotto'
-import type { SuperLottoDraw, HistoryParams } from '@/stores/superLotto'
+import type { SuperLottoDraw } from '@/types/superLotto'
 import DataTable from '@/components/super-lotto/DataTable.vue'
 import SearchFilters from '@/components/super-lotto/SearchFilters.vue'
 import DataImport from '@/components/super-lotto/DataImport.vue'
+
+interface HistoryParams {
+  page?: number
+  limit?: number
+  sort_by?: string
+  sort_dir?: 'asc' | 'desc'
+  start_date?: string
+  end_date?: string
+  front_numbers?: number[]
+  back_numbers?: number[]
+}
 
 const superLottoStore = useSuperLottoStore()
 

@@ -81,6 +81,26 @@
             </el-card>
           </el-col>
 
+          <el-col :span="8">
+            <el-card class="nav-card" @click="goToPrediction">
+              <div class="nav-content">
+                <el-icon size="48" color="#E6A23C"><MagicStick /></el-icon>
+                <h3>AI Prediction</h3>
+                <p>Generate lottery number predictions</p>
+              </div>
+            </el-card>
+          </el-col>
+
+          <el-col :span="8">
+            <el-card class="nav-card" @click="goToOneClickPrediction">
+              <div class="nav-content">
+                <el-icon size="48" color="#67C23A"><Lightning /></el-icon>
+                <h3>One-Click Prediction</h3>
+                <p>Generate all algorithm predictions instantly</p>
+              </div>
+            </el-card>
+          </el-col>
+
           <!-- Recent Draws -->
           <el-col :span="24">
             <el-card class="recent-draws-card">
@@ -132,7 +152,7 @@
 import { ref, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Document, TrendCharts } from '@element-plus/icons-vue'
+import { Document, TrendCharts, MagicStick, Lightning } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { lotteryApi } from '@/api/tauri'
 import type { LotteryDraw } from '@/types'
@@ -190,6 +210,14 @@ const goToHotNumbers = () => {
 
 const goToColdNumbers = () => {
   router.push('/cold-numbers')
+}
+
+const goToPrediction = () => {
+  router.push('/super-lotto/prediction')
+}
+
+const goToOneClickPrediction = () => {
+  router.push('/super-lotto/one-click-prediction')
 }
 
 const formatDate = (dateString: string) => {

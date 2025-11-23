@@ -2,11 +2,11 @@
 //!
 //! Implements hot/cold number analysis and frequency statistics.
 
-use crate::super_lotto::{
-    models::{SuperLottoDraw, NumberFrequency, NumberZone},
-    errors::SuperLottoError,
-};
 use crate::super_lotto::Result;
+use crate::super_lotto::{
+    errors::SuperLottoError,
+    models::{NumberFrequency, NumberZone, SuperLottoDraw},
+};
 
 pub struct FrequencyAnalyzer {
     // TODO: Implement frequency analysis logic
@@ -24,7 +24,9 @@ impl FrequencyAnalyzer {
         zone: NumberZone,
     ) -> Result<Vec<NumberFrequency>> {
         // TODO: Implement frequency analysis
-        Err(SuperLottoError::internal("Frequency analysis not implemented yet"))
+        Err(SuperLottoError::internal(
+            "Frequency analysis not implemented yet",
+        ))
     }
 
     pub async fn calculate_hot_scores(
@@ -33,6 +35,8 @@ impl FrequencyAnalyzer {
         total_draws: u32,
     ) -> Result<()> {
         // TODO: Implement hot score calculation
-        Err(SuperLottoError::internal("Hot score calculation not implemented yet"))
+        Err(SuperLottoError::internal(
+            "Hot score calculation not implemented yet",
+        ))
     }
 }

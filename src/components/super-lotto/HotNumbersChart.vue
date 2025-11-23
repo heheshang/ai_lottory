@@ -101,7 +101,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import type { NumberFrequency } from '@/stores/superLotto'
+import type { NumberFrequency } from '@/types'
 
 interface Props {
   numbers: NumberFrequency[]

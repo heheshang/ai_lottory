@@ -1,7 +1,7 @@
-use sqlx::{Pool, Sqlite, SqlitePool};
+use super::migrations::run_migrations;
+use sqlx::SqlitePool;
 use std::fs;
 use std::path::PathBuf;
-use super::migrations::run_migrations;
 
 pub fn get_database_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
     // Use local directory for now to avoid Tauri 2.0 API issues

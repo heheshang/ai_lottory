@@ -1,7 +1,9 @@
-use crate::models::lottery::{LotteryDraw, LotteryDrawDB, NewLotteryDraw, LotterySearchQuery, LotteryDrawResponse};
-use sqlx::{Pool, Sqlite, Row};
+use crate::models::lottery::{
+    LotteryDraw, LotteryDrawDB, LotteryDrawResponse, LotterySearchQuery, NewLotteryDraw,
+};
 use anyhow::Result;
 use chrono::Utc;
+use sqlx::{Pool, Sqlite};
 
 pub struct LotteryService {
     pool: Pool<Sqlite>,
@@ -45,7 +47,7 @@ impl LotteryService {
         Ok(LotteryDrawResponse {
             id: lottery_draw.id,
             draw_date: lottery_draw.draw_date,
-            winning_numbers: lottery_draw.winning_numbers,
+            winning_numbers: lottery_draw.winning_numbers.to_vec(),
             bonus_number: lottery_draw.bonus_number,
             jackpot_amount: lottery_draw.jackpot_amount,
             lottery_type: lottery_draw.lottery_type,
@@ -58,8 +60,8 @@ impl LotteryService {
         limit: Option<u32>,
         offset: Option<u32>,
     ) -> Result<Vec<LotteryDrawResponse>> {
-      // Simplified approach without dynamic query building
-    let _query = "SELECT id, draw_date, winning_numbers, bonus_number, jackpot_amount, lottery_type, created_at FROM lottery_draws";
+        // Simplified approach without dynamic query building
+        let _query = "SELECT id, draw_date, winning_numbers, bonus_number, jackpot_amount, lottery_type, created_at FROM lottery_draws";
 
         let draws_db = if let Some(lottery_type) = lottery_type {
             sqlx::query_as::<_, LotteryDrawDB>(
@@ -87,7 +89,7 @@ impl LotteryService {
             .map(|draw| LotteryDrawResponse {
                 id: draw.id,
                 draw_date: draw.draw_date,
-                winning_numbers: draw.winning_numbers,
+                winning_numbers: draw.winning_numbers.to_vec(),
                 bonus_number: draw.bonus_number,
                 jackpot_amount: draw.jackpot_amount,
                 lottery_type: draw.lottery_type,
@@ -97,7 +99,10 @@ impl LotteryService {
         Ok(responses)
     }
 
-    pub async fn search_lottery_draws(&self, query: LotterySearchQuery) -> Result<Vec<LotteryDrawResponse>> {
+    pub async fn search_lottery_draws(
+        &self,
+        query: LotterySearchQuery,
+    ) -> Result<Vec<LotteryDrawResponse>> {
         let mut where_clauses = Vec::new();
         let mut bindings: Vec<String> = Vec::new();
 
@@ -116,7 +121,7 @@ impl LotteryService {
             bindings.push(end_date.to_rfc3339());
         }
 
-        let sql = if where_clauses.is_empty() {
+        let _sql = if where_clauses.is_empty() {
             "SELECT id, draw_date, winning_numbers, bonus_number, jackpot_amount, lottery_type, created_at FROM lottery_draws ORDER BY draw_date DESC LIMIT ? OFFSET ?".to_string()
         } else {
             format!(
@@ -144,7 +149,9 @@ impl LotteryService {
             draws
                 .into_iter()
                 .filter(|draw| {
-                    number_filter.iter().all(|&num| draw.winning_numbers.contains(&num))
+                    number_filter
+                        .iter()
+                        .all(|&num| draw.winning_numbers.contains(&num))
                 })
                 .collect()
         } else {
@@ -156,7 +163,7 @@ impl LotteryService {
             .map(|draw| LotteryDrawResponse {
                 id: draw.id,
                 draw_date: draw.draw_date,
-                winning_numbers: draw.winning_numbers,
+                winning_numbers: draw.winning_numbers.to_vec(),
                 bonus_number: draw.bonus_number,
                 jackpot_amount: draw.jackpot_amount,
                 lottery_type: draw.lottery_type,

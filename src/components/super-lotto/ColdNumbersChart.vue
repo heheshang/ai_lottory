@@ -28,7 +28,7 @@
         <div class="bar-chart">
           <div class="chart-bars">
             <div
-              v-for="(item, index) in chartData"
+              v-for="item in chartData"
               :key="item.number"
               class="bar-item cold"
               :style="{ height: getBarHeight(item.frequency) + '%' }"
@@ -122,7 +122,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import type { NumberFrequency } from '@/stores/superLotto'
+import type { NumberFrequency } from '@/types'
 
 interface Props {
   numbers: NumberFrequency[]

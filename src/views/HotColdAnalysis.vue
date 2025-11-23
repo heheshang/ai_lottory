@@ -164,10 +164,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useSuperLottoStore } from '@/stores/superLotto'
-import type { NumberFrequency, AnalysisParams } from '@/stores/superLotto'
+import type { NumberFrequency } from '@/types'
 import HotNumbersChart from '@/components/super-lotto/HotNumbersChart.vue'
 import ColdNumbersChart from '@/components/super-lotto/ColdNumbersChart.vue'
 import AnalysisControls from '@/components/super-lotto/AnalysisControls.vue'
+
+interface AnalysisParams {
+  days: number
+  zone: string
+  limit?: number
+}
 
 const superLottoStore = useSuperLottoStore()
 

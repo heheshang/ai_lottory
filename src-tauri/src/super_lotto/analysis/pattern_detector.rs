@@ -2,11 +2,11 @@
 //!
 //! Implements various pattern analysis algorithms.
 
-use crate::super_lotto::{
-    models::{SuperLottoDraw, PatternAnalysis},
-    errors::SuperLottoError,
-};
 use crate::super_lotto::Result;
+use crate::super_lotto::{
+    errors::SuperLottoError,
+    models::{PatternAnalysis, SuperLottoDraw},
+};
 
 pub struct PatternDetector {
     // TODO: Implement pattern detection logic
@@ -23,7 +23,9 @@ impl PatternDetector {
         period_days: u32,
     ) -> Result<PatternAnalysis> {
         // TODO: Implement consecutive pattern detection
-        Err(SuperLottoError::internal("Pattern detection not implemented yet"))
+        Err(SuperLottoError::internal(
+            "Pattern detection not implemented yet",
+        ))
     }
 
     pub async fn analyze_odd_even_distribution(
@@ -32,7 +34,9 @@ impl PatternDetector {
         period_days: u32,
     ) -> Result<PatternAnalysis> {
         // TODO: Implement odd/even distribution analysis
-        Err(SuperLottoError::internal("Odd/even analysis not implemented yet"))
+        Err(SuperLottoError::internal(
+            "Odd/even analysis not implemented yet",
+        ))
     }
 
     pub async fn analyze_sum_ranges(
@@ -41,6 +45,8 @@ impl PatternDetector {
         period_days: u32,
     ) -> Result<PatternAnalysis> {
         // TODO: Implement sum range analysis
-        Err(SuperLottoError::internal("Sum range analysis not implemented yet"))
+        Err(SuperLottoError::internal(
+            "Sum range analysis not implemented yet",
+        ))
     }
 }

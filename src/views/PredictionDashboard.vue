@@ -156,9 +156,31 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useSuperLottoStore } from '@/stores/superLotto'
-import type { PredictionResult, PredictionParams, PredictionAlgorithm } from '@/stores/superLotto'
 import PredictionDisplay from '@/components/super-lotto/PredictionDisplay.vue'
 import AlgorithmSelector from '@/components/super-lotto/AlgorithmSelector.vue'
+
+// Define types locally to avoid circular dependencies
+interface PredictionResult {
+  id: number
+  algorithm: string
+  front_numbers: number[]
+  back_numbers: number[]
+  confidence_score: number
+  reasoning: any
+  analysis_period_days: number
+  sample_size: number
+  created_at: string
+  is_validated: boolean
+}
+
+interface PredictionParams {
+  algorithm: string
+  analysis_period_days?: number
+  custom_parameters?: any
+  include_reasoning?: boolean
+}
+
+type PredictionAlgorithm = 'WEIGHTED_FREQUENCY' | 'PATTERN_BASED' | 'MARKOV_CHAIN' | 'ENSEMBLE' | 'HOT_NUMBERS' | 'COLD_NUMBERS' | 'POSITION_ANALYSIS'
 
 const superLottoStore = useSuperLottoStore()
 
