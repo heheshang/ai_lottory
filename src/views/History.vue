@@ -92,6 +92,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { lotteryApi } from '@/api/tauri'
+import { formatDate } from '@/utils/formatters'
 import type { LotteryDraw } from '@/types'
 
 const router = useRouter()
@@ -142,10 +143,6 @@ const handleCurrentChange = (page: number) => {
 
 const goToDashboard = () => {
   router.push('/dashboard')
-}
-
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString()
 }
 
 const formatLotteryType = (type: string) => {

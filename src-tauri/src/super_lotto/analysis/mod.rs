@@ -4,4 +4,5 @@
 
 pub mod frequency_analyzer;
 pub mod pattern_detector;
+pub mod prediction_engine;
 pub mod predictor;

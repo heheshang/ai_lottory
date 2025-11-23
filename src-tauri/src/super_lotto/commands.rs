@@ -2,20 +2,21 @@
 //!
 //! Command handlers for Super Lotto functionality exposed to the frontend.
 
+use crate::models::lottery::LotteryDraw;
 use crate::super_lotto::{
     errors::SuperLottoError,
     models::{
-        SuperLottoDraw, CreateSuperLottoDraw, BatchPredictionRequest, BatchPredictionResult, PredictionResult, PredictionAlgorithm,
-        PredictionComparison, ConsensusNumbers, ConfidenceDistribution, PredictionRecommendation, RiskLevel,
-        TableFilters, UnifiedTableRow, PaginationInfo, UnifiedTableData, TableExportRequest
-    }
+        BatchPredictionRequest, BatchPredictionResult, ConfidenceDistribution, ConsensusNumbers,
+        CreateSuperLottoDraw, PaginationInfo, PredictionAlgorithm, PredictionComparison,
+        PredictionRecommendation, PredictionResult, RiskLevel, SuperLottoDraw, TableExportRequest,
+        TableFilters, UnifiedTableData, UnifiedTableRow,
+    },
 };
-use crate::models::lottery::LotteryDraw;
+use chrono::{DateTime, Utc};
 use rand::Rng;
-use sqlx::{SqlitePool, query_builder::QueryBuilder};
+use sqlx::{query_builder::QueryBuilder, SqlitePool};
 use std::result::Result;
 use tauri::State;
-use chrono::{DateTime, Utc};
 
 /// Get Super Lotto historical draws (SECURE VERSION)
 #[tauri::command]
@@ -82,7 +83,8 @@ pub async fn get_super_lotto_draws(
     println!("📝 [QUERY] Executing secure parameterized query: {}", query);
 
     // Execute secure parameterized query - use proper SQLx query building
-    let mut query_builder = sqlx::QueryBuilder::new("SELECT * FROM lottery_draws WHERE lottery_type = 'super_lotto'");
+    let mut query_builder =
+        sqlx::QueryBuilder::new("SELECT * FROM lottery_draws WHERE lottery_type = 'super_lotto'");
 
     // Add optional filters with proper parameterization
     if let Some(start) = &start_date {
@@ -132,7 +134,9 @@ pub async fn get_super_lotto_draws(
     );
 
     // Build secure count query
-    let mut count_builder = sqlx::QueryBuilder::new("SELECT COUNT(*) as total FROM lottery_draws WHERE lottery_type = 'super_lotto'");
+    let mut count_builder = sqlx::QueryBuilder::new(
+        "SELECT COUNT(*) as total FROM lottery_draws WHERE lottery_type = 'super_lotto'",
+    );
 
     if let Some(start) = &start_date {
         count_builder.push(" AND draw_date >= ");
@@ -712,6 +716,9 @@ pub async fn generate_prediction(
     custom_parameters: Option<serde_json::Value>,
     include_reasoning: Option<bool>,
 ) -> Result<serde_json::Value, SuperLottoError> {
+    use crate::super_lotto::analysis::prediction_engine::{
+        calculate_confidence_score, get_algorithm,
+    };
     use crate::super_lotto::models::SuperLottoDraw;
     use chrono::{Duration, Utc};
 
@@ -727,28 +734,15 @@ pub async fn generate_prediction(
     println!("  - custom_parameters: {:?}", custom_parameters);
     println!("  - include_reasoning: {}", include_reasoning);
 
-    // Validate algorithm
-    let valid_algorithms = [
-        "WEIGHTED_FREQUENCY",
-        "PATTERN_BASED",
-        "MARKOV_CHAIN",
-        "ENSEMBLE",
-        "HOT_NUMBERS",
-        "COLD_NUMBERS",
-        "POSITION_ANALYSIS",
-    ];
-
-    if !valid_algorithms.contains(&algorithm.as_str()) {
+    // Get algorithm instance
+    let algo = get_algorithm(&algorithm).ok_or_else(|| {
         println!("❌ [ERROR] Unknown algorithm: {}", algorithm);
-        return Err(SuperLottoError::internal(format!(
-            "Unknown algorithm: {}",
-            algorithm
-        )));
-    }
+        SuperLottoError::internal(format!("Unknown algorithm: {}", algorithm))
+    })?;
 
     println!("✅ [ALGORITHM] Validated algorithm: {}", algorithm);
 
-    // Get historical draws for analysis - use correct table name
+    // Get historical draws for analysis
     let cutoff_date = Utc::now() - Duration::days(analysis_days as i64);
     let query = format!(
         "SELECT * FROM lottery_draws WHERE lottery_type = 'super_lotto' AND draw_date >= '{}' ORDER BY draw_date DESC",
@@ -759,7 +753,6 @@ pub async fn generate_prediction(
         "📅 [ANALYSIS] Analyzing draws from {} to present",
         cutoff_date.format("%Y-%m-%d")
     );
-    println!("📝 [QUERY] {}", query);
 
     let raw_draws = sqlx::query_as::<_, LotteryDraw>(&query)
         .fetch_all(pool.inner())
@@ -790,44 +783,8 @@ pub async fn generate_prediction(
     );
     let algorithm_start = std::time::Instant::now();
 
-    // Generate prediction based on algorithm
-    let (front_numbers, back_numbers, reasoning) = match algorithm.as_str() {
-        "WEIGHTED_FREQUENCY" => {
-            println!("📈 [ALGORITHM] Using weighted frequency analysis");
-            generate_weighted_frequency_prediction(&draws, &custom_parameters)
-        }
-        "PATTERN_BASED" => {
-            println!("🔲 [ALGORITHM] Using pattern-based analysis");
-            generate_pattern_based_prediction(&draws, &custom_parameters)
-        }
-        "MARKOV_CHAIN" => {
-            println!("🔗 [ALGORITHM] Using Markov chain analysis");
-            generate_markov_chain_prediction(&draws, &custom_parameters)
-        }
-        "ENSEMBLE" => {
-            println!("🎭 [ALGORITHM] Using ensemble method (multiple algorithms)");
-            generate_ensemble_prediction(&draws, &custom_parameters)
-        }
-        "HOT_NUMBERS" => {
-            println!("🔥 [ALGORITHM] Using hot numbers strategy");
-            generate_hot_numbers_prediction(&draws, &custom_parameters)
-        }
-        "COLD_NUMBERS" => {
-            println!("❄️ [ALGORITHM] Using cold numbers strategy");
-            generate_cold_numbers_prediction(&draws, &custom_parameters)
-        }
-        "POSITION_ANALYSIS" => {
-            println!("📍 [ALGORITHM] Using position analysis");
-            generate_position_analysis_prediction(&draws, &custom_parameters)
-        }
-        _ => {
-            println!("❌ [ERROR] Unexpected algorithm in match: {}", algorithm);
-            return Err(SuperLottoError::internal(format!(
-                "Unknown algorithm: {}",
-                algorithm
-            )));
-        }
-    };
+    // Generate prediction using the algorithm trait
+    let (front_numbers, back_numbers, reasoning) = algo.predict(&draws, &custom_parameters);
 
     let algorithm_duration = algorithm_start.elapsed();
     println!(
@@ -837,8 +794,8 @@ pub async fn generate_prediction(
     println!("📤 [PREDICTION] Front numbers: {:?}", front_numbers);
     println!("📤 [PREDICTION] Back numbers: {:?}", back_numbers);
 
-    // Calculate confidence score based on data size and algorithm
-    let confidence_score = calculate_confidence_score(&draws, &algorithm, analysis_days);
+    // Calculate confidence score using the trait method
+    let confidence_score = calculate_confidence_score(&draws, algo.as_ref(), analysis_days);
     println!(
         "📊 [CONFIDENCE] Calculated confidence score: {:.3}",
         confidence_score
@@ -889,510 +846,7 @@ pub async fn generate_prediction(
         back_numbers
     );
 
-    // Save prediction to database (optional - would need predictions table)
-    // For now, just return the result
-
     Ok(prediction)
-}
-
-/// Helper function to generate weighted frequency prediction
-fn generate_weighted_frequency_prediction(
-    draws: &[SuperLottoDraw],
-    _params: &Option<serde_json::Value>,
-) -> (Vec<u32>, Vec<u32>, String) {
-    use std::collections::HashMap;
-
-    let mut front_freq = HashMap::new();
-    let mut back_freq = HashMap::new();
-
-    // Calculate frequencies with time decay
-    for (i, draw) in draws.iter().enumerate() {
-        let weight = 1.0 - (i as f64 * 0.01); // Simple time decay
-        for num in &draw.front_zone {
-            *front_freq.entry(*num).or_insert(0.0) += weight;
-        }
-        for num in &draw.back_zone {
-            *back_freq.entry(*num).or_insert(0.0) += weight;
-        }
-    }
-
-    // Select numbers based on weighted frequencies
-    let mut front_candidates: Vec<_> = front_freq.into_iter().collect();
-    front_candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-
-    let mut back_candidates: Vec<_> = back_freq.into_iter().collect();
-    back_candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-
-    // Generate prediction with some randomness
-    let mut rng = rand::thread_rng();
-    let mut front_numbers = Vec::new();
-
-    // Select 5 front numbers from top 15 candidates with some randomness
-    let top_front: Vec<u32> = front_candidates
-        .iter()
-        .take(15)
-        .map(|(num, _)| *num)
-        .collect();
-
-    while front_numbers.len() < 5 {
-        let num = top_front[rng.gen_range(0..top_front.len())];
-        if !front_numbers.contains(&num) {
-            front_numbers.push(num);
-        }
-    }
-    front_numbers.sort_unstable();
-
-    // Select 2 back numbers from top 8 candidates
-    let mut back_numbers = Vec::new();
-    let top_back: Vec<u32> = back_candidates
-        .iter()
-        .take(8)
-        .map(|(num, _)| *num)
-        .collect();
-
-    while back_numbers.len() < 2 {
-        let num = top_back[rng.gen_range(0..top_back.len())];
-        if !back_numbers.contains(&num) {
-            back_numbers.push(num);
-        }
-    }
-    back_numbers.sort_unstable();
-
-    let reasoning = format!(
-        "Weighted frequency analysis based on {} recent draws. \
-        Front numbers selected from高频前区号 with time decay factor. \
-        Back numbers selected from高频后区号.",
-        draws.len()
-    );
-
-    (front_numbers, back_numbers, reasoning)
-}
-
-/// Helper function to generate pattern-based prediction
-fn generate_pattern_based_prediction(
-    draws: &[SuperLottoDraw],
-    _params: &Option<serde_json::Value>,
-) -> (Vec<u32>, Vec<u32>, String) {
-    let mut rng = rand::thread_rng();
-
-    // Analyze common patterns
-    let mut odd_even_ratios = Vec::new();
-    let mut sum_ranges = Vec::new();
-
-    for draw in draws {
-        let odd_count = draw.front_zone.iter().filter(|&&n| n % 2 == 1).count();
-        let sum = draw.front_zone.iter().sum::<u32>();
-
-        odd_even_ratios.push(odd_count);
-        sum_ranges.push(sum);
-    }
-
-    // Determine optimal odd/even ratio (aim for 2:3 or 3:2)
-    let target_odd = if rng.gen_bool(0.5) { 2 } else { 3 };
-
-    // Generate front numbers with pattern constraints
-    let mut front_numbers = Vec::new();
-    let mut odd_count = 0;
-
-    while front_numbers.len() < 5 {
-        let num = rng.gen_range(1..36);
-        if !front_numbers.contains(&num) {
-            if num % 2 == 1 {
-                if odd_count < target_odd {
-                    front_numbers.push(num);
-                    odd_count += 1;
-                }
-            } else {
-                front_numbers.push(num);
-            }
-        }
-    }
-    front_numbers.sort_unstable();
-
-    // Generate back numbers
-    let mut back_numbers = Vec::new();
-    while back_numbers.len() < 2 {
-        let num = rng.gen_range(1..12);
-        if !back_numbers.contains(&num) {
-            back_numbers.push(num);
-        }
-    }
-    back_numbers.sort_unstable();
-
-    let reasoning = format!(
-        "Pattern-based analysis considering odd/even ratios and sum ranges from {} historical draws. \
-        Target odd/even ratio: {}:{}, Front sum: {}",
-        draws.len(),
-        target_odd,
-        5 - target_odd,
-        front_numbers.iter().sum::<u32>()
-    );
-
-    (front_numbers, back_numbers, reasoning)
-}
-
-/// Helper function to generate Markov chain prediction
-fn generate_markov_chain_prediction(
-    draws: &[SuperLottoDraw],
-    _params: &Option<serde_json::Value>,
-) -> (Vec<u32>, Vec<u32>, String) {
-    // Simplified Markov chain - look at number transitions
-    let mut transitions = std::collections::HashMap::new();
-
-    for draw in draws.windows(2) {
-        let prev = &draw[0].front_zone;
-        let next = &draw[1].front_zone;
-
-        for &prev_num in prev {
-            for &next_num in next {
-                *transitions.entry((prev_num, next_num)).or_insert(0) += 1;
-            }
-        }
-    }
-
-    // For simplicity, fall back to random generation with Markov reasoning
-    let mut rng = rand::thread_rng();
-    let mut front_numbers = Vec::new();
-
-    while front_numbers.len() < 5 {
-        let num = rng.gen_range(1..36);
-        if !front_numbers.contains(&num) {
-            front_numbers.push(num);
-        }
-    }
-    front_numbers.sort_unstable();
-
-    let mut back_numbers = Vec::new();
-    while back_numbers.len() < 2 {
-        let num = rng.gen_range(1..12);
-        if !back_numbers.contains(&num) {
-            back_numbers.push(num);
-        }
-    }
-    back_numbers.sort_unstable();
-
-    let reasoning = format!(
-        "Markov chain analysis examining transition probabilities between consecutive numbers in {} draws. \
-        Prediction considers most likely number transitions based on historical patterns.",
-        draws.len()
-    );
-
-    (front_numbers, back_numbers, reasoning)
-}
-
-/// Helper function to generate ensemble prediction
-fn generate_ensemble_prediction(
-    draws: &[SuperLottoDraw],
-    params: &Option<serde_json::Value>,
-) -> (Vec<u32>, Vec<u32>, String) {
-    // Combine multiple algorithms
-    let (wf_front, wf_back, _) = generate_weighted_frequency_prediction(draws, params);
-    let (pb_front, pb_back, _) = generate_pattern_based_prediction(draws, params);
-    let (hn_front, hn_back, _) = generate_hot_numbers_prediction(draws, params);
-
-    // Simple voting mechanism
-    use std::collections::HashMap;
-    let mut front_votes = HashMap::new();
-    let mut back_votes = HashMap::new();
-
-    for &num in &wf_front {
-        *front_votes.entry(num).or_insert(0) += 2; // Give weight to frequency
-    }
-    for &num in &pb_front {
-        *front_votes.entry(num).or_insert(0) += 1;
-    }
-    for &num in &hn_front {
-        *front_votes.entry(num).or_insert(0) += 1;
-    }
-
-    for &num in &wf_back {
-        *back_votes.entry(num).or_insert(0) += 2;
-    }
-    for &num in &pb_back {
-        *back_votes.entry(num).or_insert(0) += 1;
-    }
-    for &num in &hn_back {
-        *back_votes.entry(num).or_insert(0) += 1;
-    }
-
-    // Select top voted numbers
-    let mut front_numbers: Vec<_> = front_votes.into_iter().collect::<Vec<_>>();
-    front_numbers.sort_by(|a, b| b.1.cmp(&a.1));
-    front_numbers.truncate(5);
-    front_numbers.sort_unstable();
-
-    let mut back_numbers: Vec<_> = back_votes.into_iter().collect::<Vec<_>>();
-    back_numbers.sort_by(|a, b| b.1.cmp(&a.1));
-    back_numbers.truncate(2);
-    back_numbers.sort_unstable();
-
-    let reasoning = format!(
-        "Ensemble method combining weighted frequency, pattern-based, and hot numbers algorithms. \
-        Integrated analysis of {} draws using voting mechanism. \
-        Front votes and back votes combined for optimal prediction.",
-        draws.len()
-    );
-
-    (
-        front_numbers.into_iter().map(|(num, _)| num).collect(),
-        back_numbers.into_iter().map(|(num, _)| num).collect(),
-        reasoning,
-    )
-}
-
-/// Helper function to generate hot numbers prediction
-fn generate_hot_numbers_prediction(
-    draws: &[SuperLottoDraw],
-    _params: &Option<serde_json::Value>,
-) -> (Vec<u32>, Vec<u32>, String) {
-    use std::collections::HashMap;
-
-    let mut front_freq = HashMap::new();
-    let mut back_freq = HashMap::new();
-
-    // Count frequencies
-    for draw in draws {
-        for num in &draw.front_zone {
-            *front_freq.entry(*num).or_insert(0) += 1;
-        }
-        for num in &draw.back_zone {
-            *back_freq.entry(*num).or_insert(0) += 1;
-        }
-    }
-
-    // Select most frequent numbers
-    let mut front_candidates: Vec<_> = front_freq.into_iter().collect();
-    front_candidates.sort_by(|a, b| b.1.cmp(&a.1));
-
-    let mut back_candidates: Vec<_> = back_freq.into_iter().collect();
-    back_candidates.sort_by(|a, b| b.1.cmp(&a.1));
-
-    let mut front_numbers = Vec::new();
-    let mut rng = rand::thread_rng();
-
-    // Select from top 10 most frequent with some randomness
-    let top_front: Vec<u32> = front_candidates
-        .iter()
-        .take(10)
-        .map(|(num, _)| *num)
-        .collect();
-
-    while front_numbers.len() < 5 {
-        let num = top_front[rng.gen_range(0..top_front.len())];
-        if !front_numbers.contains(&num) {
-            front_numbers.push(num);
-        }
-    }
-    front_numbers.sort_unstable();
-
-    let mut back_numbers = Vec::new();
-    let top_back: Vec<u32> = back_candidates
-        .iter()
-        .take(6)
-        .map(|(num, _)| *num)
-        .collect();
-
-    while back_numbers.len() < 2 {
-        let num = top_back[rng.gen_range(0..top_back.len())];
-        if !back_numbers.contains(&num) {
-            back_numbers.push(num);
-        }
-    }
-    back_numbers.sort_unstable();
-
-    let reasoning = format!(
-        "Hot numbers strategy selecting from most frequently drawn numbers in {} recent draws. \
-        Front numbers from top 10 most frequent, back numbers from top 6 most frequent.",
-        draws.len()
-    );
-
-    (front_numbers, back_numbers, reasoning)
-}
-
-/// Helper function to generate cold numbers prediction
-fn generate_cold_numbers_prediction(
-    draws: &[SuperLottoDraw],
-    _params: &Option<serde_json::Value>,
-) -> (Vec<u32>, Vec<u32>, String) {
-    use std::collections::HashMap;
-
-    let mut front_last_seen = HashMap::new();
-    let mut back_last_seen = HashMap::new();
-
-    // Track when each number was last seen
-    for (i, draw) in draws.iter().enumerate() {
-        for num in &draw.front_zone {
-            front_last_seen.entry(*num).or_insert(i);
-        }
-        for num in &draw.back_zone {
-            back_last_seen.entry(*num).or_insert(i);
-        }
-    }
-
-    // Numbers never seen get maximum index
-    for num in 1..=35 {
-        front_last_seen.entry(num).or_insert(draws.len());
-    }
-    for num in 1..=12 {
-        back_last_seen.entry(num).or_insert(draws.len());
-    }
-
-    // Select numbers that haven't appeared recently
-    let mut front_candidates: Vec<_> = front_last_seen.into_iter().collect();
-    front_candidates.sort_by(|a, b| b.1.cmp(&a.1)); // Higher index = longer since last seen
-
-    let mut back_candidates: Vec<_> = back_last_seen.into_iter().collect();
-    back_candidates.sort_by(|a, b| b.1.cmp(&a.1));
-
-    let mut front_numbers = Vec::new();
-    let mut rng = rand::thread_rng();
-
-    // Select from numbers with longest gaps
-    let top_front: Vec<u32> = front_candidates
-        .iter()
-        .take(15)
-        .map(|(num, _)| *num)
-        .collect();
-
-    while front_numbers.len() < 5 {
-        let num = top_front[rng.gen_range(0..top_front.len())];
-        if !front_numbers.contains(&num) {
-            front_numbers.push(num);
-        }
-    }
-    front_numbers.sort_unstable();
-
-    let mut back_numbers = Vec::new();
-    let top_back: Vec<u32> = back_candidates
-        .iter()
-        .take(8)
-        .map(|(num, _)| *num)
-        .collect();
-
-    while back_numbers.len() < 2 {
-        let num = top_back[rng.gen_range(0..top_back.len())];
-        if !back_numbers.contains(&num) {
-            back_numbers.push(num);
-        }
-    }
-    back_numbers.sort_unstable();
-
-    let reasoning = format!(
-        "Cold numbers strategy selecting numbers that haven't appeared recently in {} draws. \
-        Based on probability regression theory - overdue numbers may be due for appearance.",
-        draws.len()
-    );
-
-    (front_numbers, back_numbers, reasoning)
-}
-
-/// Helper function to generate position analysis prediction
-fn generate_position_analysis_prediction(
-    draws: &[SuperLottoDraw],
-    _params: &Option<serde_json::Value>,
-) -> (Vec<u32>, Vec<u32>, String) {
-    use std::collections::HashMap;
-
-    // Analyze numbers by position
-    let mut pos_freq = vec![
-        HashMap::new(),
-        HashMap::new(),
-        HashMap::new(),
-        HashMap::new(),
-        HashMap::new(),
-    ];
-
-    for draw in draws {
-        for (pos, &num) in draw.front_zone.iter().enumerate() {
-            if pos < 5 {
-                *pos_freq[pos].entry(num).or_insert(0) += 1;
-            }
-        }
-    }
-
-    // Generate numbers based on position frequencies
-    let mut front_numbers = Vec::new();
-    let mut rng = rand::thread_rng();
-
-    for pos in 0..5 {
-        let mut candidates: Vec<_> = pos_freq[pos].iter().collect();
-        candidates.sort_by(|a, b| b.1.cmp(&a.1));
-
-        let top_candidates: Vec<u32> = candidates.iter().take(10).map(|(&num, _)| num).collect();
-
-        let mut attempts = 0;
-        while attempts < 20 {
-            let num = top_candidates[rng.gen_range(0..top_candidates.len())];
-            if !front_numbers.contains(&num) {
-                front_numbers.push(num);
-                break;
-            }
-            attempts += 1;
-        }
-
-        // Fallback if no suitable number found
-        if front_numbers.len() <= pos {
-            for num in 1..=35 {
-                if !front_numbers.contains(&num) {
-                    front_numbers.push(num);
-                    break;
-                }
-            }
-        }
-    }
-    front_numbers.sort_unstable();
-
-    // Generate back numbers
-    let mut back_numbers = Vec::new();
-    while back_numbers.len() < 2 {
-        let num = rng.gen_range(1..12);
-        if !back_numbers.contains(&num) {
-            back_numbers.push(num);
-        }
-    }
-    back_numbers.sort_unstable();
-
-    let reasoning = format!(
-        "Position analysis examining number frequency patterns by position across {} draws. \
-        Each front position (1-5) analyzed separately to identify position-specific tendencies.",
-        draws.len()
-    );
-
-    (front_numbers, back_numbers, reasoning)
-}
-
-/// Helper function to calculate confidence score
-fn calculate_confidence_score(
-    draws: &[SuperLottoDraw],
-    algorithm: &str,
-    analysis_days: u32,
-) -> f64 {
-    let base_confidence = match algorithm {
-        "ENSEMBLE" => 0.75,
-        "MARKOV_CHAIN" => 0.70,
-        "WEIGHTED_FREQUENCY" => 0.65,
-        "PATTERN_BASED" => 0.65,
-        "POSITION_ANALYSIS" => 0.60,
-        "HOT_NUMBERS" => 0.55,
-        "COLD_NUMBERS" => 0.50,
-        _ => 0.50,
-    };
-
-    // Adjust based on sample size
-    let sample_size_factor = (draws.len() as f64 / 100.0).min(1.0);
-
-    // Adjust based on analysis period
-    let period_factor = if analysis_days >= 365 {
-        1.0
-    } else if analysis_days >= 180 {
-        0.9
-    } else if analysis_days >= 90 {
-        0.8
-    } else {
-        0.7
-    };
-
-    (base_confidence * sample_size_factor * period_factor).min(0.95)
 }
 
 /// Get prediction results
@@ -1500,6 +954,7 @@ pub async fn generate_all_predictions(
     let start_time = std::time::Instant::now();
 
     for algorithm in &batch_request.algorithms {
+        let algorithm_str = algorithm.to_string();
         println!(
             "🎯 [PREDICTION] Generating prediction using: {:?}",
             algorithm
@@ -1507,7 +962,7 @@ pub async fn generate_all_predictions(
 
         match generate_prediction_for_algorithm(
             &pool,
-            algorithm,
+            &algorithm_str,
             &historical_draws,
             batch_request.analysis_period_days,
             batch_request.include_reasoning,
@@ -1848,103 +1303,37 @@ async fn get_historical_data_for_analysis(
 /// Generate prediction for a specific algorithm
 async fn generate_prediction_for_algorithm(
     pool: &SqlitePool,
-    algorithm: &PredictionAlgorithm,
+    algorithm_name: &str,
     historical_draws: &[SuperLottoDraw],
     analysis_period_days: u32,
     include_reasoning: bool,
     draw_number: u32,
 ) -> Result<PredictionResult, SuperLottoError> {
-    match algorithm {
-        PredictionAlgorithm::WeightedFrequency => {
-            let (red_nums, blue_nums, reasoning) =
-                generate_weighted_frequency_prediction(&historical_draws, &None);
-            // Convert to PredictionResult format
-            Ok(PredictionResult::new(
-                PredictionAlgorithm::WeightedFrequency,
-                red_nums,
-                blue_nums,
-                0.75,
-                serde_json::json!(reasoning),
-                analysis_period_days,
-                historical_draws.len() as u32,
-            )?)
-        }
-        PredictionAlgorithm::HotNumbers => {
-            let (red_nums, blue_nums, reasoning) =
-                generate_hot_numbers_prediction(&historical_draws, &None);
-            Ok(PredictionResult::new(
-                PredictionAlgorithm::HotNumbers,
-                red_nums,
-                blue_nums,
-                0.70,
-                serde_json::json!(reasoning),
-                analysis_period_days,
-                historical_draws.len() as u32,
-            )?)
-        }
-        PredictionAlgorithm::ColdNumbers => {
-            let (red_nums, blue_nums, reasoning) =
-                generate_cold_numbers_prediction(&historical_draws, &None);
-            Ok(PredictionResult::new(
-                PredictionAlgorithm::ColdNumbers,
-                red_nums,
-                blue_nums,
-                0.65,
-                serde_json::json!(reasoning),
-                analysis_period_days,
-                historical_draws.len() as u32,
-            )?)
-        }
-        PredictionAlgorithm::PatternBased => {
-            let (red_nums, blue_nums, reasoning) =
-                generate_pattern_based_prediction(&historical_draws, &None);
-            Ok(PredictionResult::new(
-                PredictionAlgorithm::PatternBased,
-                red_nums,
-                blue_nums,
-                0.80,
-                serde_json::json!(reasoning),
-                analysis_period_days,
-                historical_draws.len() as u32,
-            )?)
-        }
-        PredictionAlgorithm::Ensemble => {
-            // Simple ensemble: combine multiple algorithms
-            let (wf_red, wf_blue, wf_reasoning) =
-                generate_weighted_frequency_prediction(&historical_draws, &None);
-            let (hot_red, hot_blue, hot_reasoning) =
-                generate_hot_numbers_prediction(&historical_draws, &None);
+    use crate::super_lotto::analysis::prediction_engine::{
+        calculate_confidence_score, get_algorithm,
+    };
+    use std::str::FromStr;
 
-            // Simple averaging for demonstration
-            let mut ensemble_reasoning = serde_json::json!({
-                "weighted_frequency": wf_reasoning,
-                "hot_numbers": hot_reasoning,
-                "method": "simple_average"
-            });
+    // Get algorithm instance
+    let algo = get_algorithm(algorithm_name).ok_or_else(|| {
+        SuperLottoError::internal(format!("Unknown algorithm: {}", algorithm_name))
+    })?;
 
-            // Use weighted frequency as base (could be more sophisticated)
-            Ok(PredictionResult::new(
-                PredictionAlgorithm::Ensemble,
-                wf_red,
-                wf_blue,
-                0.85, // Higher confidence for ensemble
-                ensemble_reasoning,
-                analysis_period_days,
-                historical_draws.len() as u32,
-            )?)
-        }
-        _ => {
-            let (red_nums, blue_nums, reasoning) =
-                generate_weighted_frequency_prediction(&historical_draws, &None);
-            Ok(PredictionResult::new(
-                PredictionAlgorithm::WeightedFrequency,
-                red_nums,
-                blue_nums,
-                0.75,
-                serde_json::json!(reasoning),
-                analysis_period_days,
-                historical_draws.len() as u32,
-            )?)
-        }
-    }
+    // Generate prediction
+    let (red_nums, blue_nums, reasoning) = algo.predict(historical_draws, &None);
+
+    // Calculate confidence score
+    let confidence =
+        calculate_confidence_score(historical_draws, algo.as_ref(), analysis_period_days);
+
+    // Create PredictionResult
+    Ok(PredictionResult::new(
+        FromStr::from_str(algorithm_name).unwrap_or(PredictionAlgorithm::WeightedFrequency),
+        red_nums,
+        blue_nums,
+        confidence,
+        serde_json::json!(reasoning),
+        analysis_period_days,
+        historical_draws.len() as u32,
+    )?)
 }

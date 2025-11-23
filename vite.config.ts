@@ -42,7 +42,7 @@ export default defineConfig({
           vendor: ['vue', 'vue-router', 'pinia'],
           element: ['element-plus', '@element-plus/icons-vue'],
           charts: ['echarts', 'vue-echarts'],
-          utils: ['lodash-es', 'axios'],
+          utils: ['axios']
         },
         // Optimize chunk size
         chunkFileNames: (chunkInfo) => {

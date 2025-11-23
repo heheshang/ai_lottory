@@ -78,6 +78,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { SuperLottoDraw } from '@/types/superLotto'
+import { formatDate, formatCurrency } from '@/utils/formatters'
 
 // Props
 interface Props {
@@ -99,20 +100,6 @@ const emit = defineEmits<{
 const selectedDraw = ref<SuperLottoDraw | null>(null)
 
 // Methods
-const formatDate = (dateString: string) => {
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('zh-CN')
-  } catch {
-    return dateString
-  }
-}
-
-const formatCurrency = (amount: number | null | undefined) => {
-  if (amount === null || amount === undefined) return '-'
-  return `¥${amount.toLocaleString('zh-CN')}`
-}
-
 const selectDraw = (draw: SuperLottoDraw) => {
   selectedDraw.value = draw
   emit('draw-select', draw)

@@ -51,55 +51,17 @@
           </el-col>
 
           <!-- Navigation Cards -->
-          <el-col :span="8">
-            <el-card class="nav-card" @click="goToHistory">
-              <div class="nav-content">
-                <el-icon size="48" color="#409EFF"><Document /></el-icon>
-                <h3>Lottery History</h3>
-                <p>View past winning numbers and results</p>
-              </div>
-            </el-card>
-          </el-col>
-
-          <el-col :span="8">
-            <el-card class="nav-card" @click="goToHotNumbers">
-              <div class="nav-content">
-                <el-icon size="48" color="#F56C6C"><TrendCharts /></el-icon>
-                <h3>Hot Numbers</h3>
-                <p>Discover frequently drawn numbers</p>
-              </div>
-            </el-card>
-          </el-col>
-
-          <el-col :span="8">
-            <el-card class="nav-card" @click="goToColdNumbers">
-              <div class="nav-content">
-                <el-icon size="48" color="#67C23A"><TrendCharts /></el-icon>
-                <h3>Cold Numbers</h3>
-                <p>Find numbers that are due for drawing</p>
-              </div>
-            </el-card>
-          </el-col>
-
-          <el-col :span="8">
-            <el-card class="nav-card" @click="goToPrediction">
-              <div class="nav-content">
-                <el-icon size="48" color="#E6A23C"><MagicStick /></el-icon>
-                <h3>AI Prediction</h3>
-                <p>Generate lottery number predictions</p>
-              </div>
-            </el-card>
-          </el-col>
-
-          <el-col :span="8">
-            <el-card class="nav-card" @click="goToOneClickPrediction">
-              <div class="nav-content">
-                <el-icon size="48" color="#67C23A"><Lightning /></el-icon>
-                <h3>One-Click Prediction</h3>
-                <p>Generate all algorithm predictions instantly</p>
-              </div>
-            </el-card>
-          </el-col>
+          <template v-for="card in navigationCards" :key="card.id">
+            <el-col :span="8">
+              <el-card class="nav-card" @click="card.action">
+                <div class="nav-content">
+                  <div class="nav-icon" :style="{ color: card.color }" v-html="card.icon"></div>
+                  <h3>{{ card.title }}</h3>
+                  <p>{{ card.description }}</p>
+                </div>
+              </el-card>
+            </el-col>
+          </template>
 
           <!-- Recent Draws -->
           <el-col :span="24">
@@ -111,34 +73,43 @@
                 </div>
               </template>
               <div v-loading="loading" class="recent-draws">
-                <div
-                  v-for="draw in recentDraws"
-                  :key="draw.id"
-                  class="draw-item"
-                >
-                  <div class="draw-date">
-                    {{ formatDate(draw.draw_date) }}
+                <template v-if="recentDraws.length === 0">
+                  <div class="empty-draws">
+                    <p>No recent draws available</p>
                   </div>
-                  <div class="draw-numbers">
-                    <el-tag
-                      v-for="number in draw.winning_numbers"
-                      :key="number"
-                      class="number-tag"
-                    >
-                      {{ number }}
-                    </el-tag>
-                    <el-tag
-                      v-if="draw.bonus_number"
-                      type="warning"
-                      class="bonus-tag"
-                    >
-                      {{ draw.bonus_number }}
-                    </el-tag>
+                </template>
+                <template v-else>
+                  <div
+                    v-for="draw in recentDraws"
+                    :key="draw.id"
+                    class="draw-item"
+                  >
+                    <div class="draw-date">
+                      {{ formatDate(draw.draw_date) }}
+                    </div>
+                    <div class="draw-numbers">
+                      <template v-if="draw.winning_numbers && draw.winning_numbers.length > 0">
+                        <el-tag
+                          v-for="(number, index) in draw.winning_numbers"
+                          :key="'num-' + index"
+                          class="number-tag"
+                        >
+                          {{ number }}
+                        </el-tag>
+                      </template>
+                      <el-tag
+                        v-if="draw.bonus_number"
+                        type="warning"
+                        class="bonus-tag"
+                      >
+                        {{ draw.bonus_number }}
+                      </el-tag>
+                    </div>
+                    <div class="draw-type">
+                      {{ formatLotteryType(draw.lottery_type) }}
+                    </div>
                   </div>
-                  <div class="draw-type">
-                    {{ formatLotteryType(draw.lottery_type) }}
-                  </div>
-                </div>
+                </template>
               </div>
             </el-card>
           </el-col>
@@ -149,12 +120,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Document, TrendCharts, MagicStick, Lightning } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { lotteryApi } from '@/api/tauri'
+import { formatDate } from '@/utils/formatters'
 import type { LotteryDraw } from '@/types'
 
 const router = useRouter()
@@ -169,6 +140,58 @@ const stats = reactive({
   coldNumbersCount: 0,
   avgJackpot: '$0'
 })
+
+interface NavigationCard {
+  id: string
+  title: string
+  description: string
+  color: string
+  icon: string
+  action: () => void
+}
+
+const navigationCards = computed<NavigationCard[]>(() => [
+  {
+    id: 'history',
+    title: 'Lottery History',
+    description: 'View past winning numbers and results',
+    color: '#409EFF',
+    icon: '<svg viewBox="0 0 1024 1024" width="48" height="48"><path fill="currentColor" d="M832 384H576V128H192v768h640V384zm-26.496-64L640 154.496V320h165.504zM160 64h480l256 256v608a32 32 0 0 1-32 32H160a32 32 0 0 1-32-32V96a32 32 0 0 1 32-32zm160 448h384v64H320v-64zm0-192h160v64H320v-64zm0 384h384v64H320v-64z"></path></svg>',
+    action: goToHistory
+  },
+  {
+    id: 'hot-numbers',
+    title: 'Hot Numbers',
+    description: 'Discover frequently drawn numbers',
+    color: '#F56C6C',
+    icon: '<svg viewBox="0 0 1024 1024" width="48" height="48"><path fill="currentColor" d="M128 896V128h768v768H128zm291.712-327.296l128 102.4 180.16-201.792-47.744-42.624-139.84 156.608-128-102.4-180.16 201.792 47.744 42.624 139.84-156.608z"></path></svg>',
+    action: goToHotNumbers
+  },
+  {
+    id: 'cold-numbers',
+    title: 'Cold Numbers',
+    description: 'Find numbers that are due for drawing',
+    color: '#67C23A',
+    icon: '<svg viewBox="0 0 1024 1024" width="48" height="48"><path fill="currentColor" d="M128 896V128h768v768H128zm291.712-327.296l128 102.4 180.16-201.792-47.744-42.624-139.84 156.608-128-102.4-180.16 201.792 47.744 42.624 139.84-156.608z"></path></svg>',
+    action: goToColdNumbers
+  },
+  {
+    id: 'prediction',
+    title: 'AI Prediction',
+    description: 'Generate lottery number predictions',
+    color: '#E6A23C',
+    icon: '<svg viewBox="0 0 1024 1024" width="48" height="48"><path fill="currentColor" d="M512 64 128 192v384c0 212.064 114.624 407.424 288 511.488C688.384 983.424 896 788.064 896 576V192L512 64zm0 64l320 106.688V576c0 188.16-101.504 362.048-256 456.832C421.504 938.048 256 764.16 256 576V234.688L512 128z"></path><path fill="currentColor" d="M480 416h64v192h-64zm0-128h64v64h-64z"></path></svg>',
+    action: goToPrediction
+  },
+  {
+    id: 'one-click',
+    title: 'One-Click Prediction',
+    description: 'Generate all algorithm predictions instantly',
+    color: '#67C23A',
+    icon: '<svg viewBox="0 0 1024 1024" width="48" height="48"><path fill="currentColor" d="M679.872 348.8l-301.76 188.608a127.808 127.808 0 0 1 5.12 52.16l279.936 104.96a128 128 0 1 1-22.464 59.904l-279.872-104.96a128 128 0 1 1-16.64-166.272l301.696-188.608a128 128 0 1 1 33.92 54.272z"></path></svg>',
+    action: goToOneClickPrediction
+  }
+])
 
 const loadRecentDraws = async () => {
   try {
@@ -218,10 +241,6 @@ const goToPrediction = () => {
 
 const goToOneClickPrediction = () => {
   router.push('/super-lotto/one-click-prediction')
-}
-
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString()
 }
 
 const formatLotteryType = (type: string) => {
@@ -301,6 +320,15 @@ onMounted(() => {
   padding: 20px;
 }
 
+.nav-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .nav-content h3 {
   margin: 15px 0 10px 0;
   color: #303133;
@@ -329,6 +357,17 @@ onMounted(() => {
 .recent-draws {
   max-height: 400px;
   overflow-y: auto;
+}
+
+.empty-draws {
+  text-align: center;
+  padding: 40px 20px;
+  color: #909399;
+}
+
+.empty-draws p {
+  margin: 0;
+  font-size: 14px;
 }
 
 .draw-item {

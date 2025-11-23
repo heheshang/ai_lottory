@@ -8,71 +8,66 @@
     <div class="controls-section">
       <div class="prediction-controls">
         <AlgorithmSelector
-          v-model="selectedAlgorithm"
+          v-model="selectedAlgorithm as any"
           @algorithm-change="handleAlgorithmChange"
         />
         <div class="period-selector">
           <label>分析周期:</label>
-          <select v-model="analysisPeriod" @change="handlePeriodChange">
-            <option value="30">最近30天</option>
-            <option value="60">最近60天</option>
-            <option value="90">最近90天</option>
-            <option value="180">最近180天</option>
-            <option value="365">最近一年</option>
+          <select v-model="analysisPeriod">
+            <option v-for="period in ANALYSIS_PERIODS" :key="period.value" :value="period.value">
+              {{ period.label }}
+            </option>
           </select>
         </div>
         <button
           @click="generateNewPrediction"
-          :disabled="loading"
+          :disabled="loading || isGenerating"
           class="btn btn-primary"
         >
-          {{ loading ? '生成中...' : '生成预测' }}
+          {{ (loading || isGenerating) ? '生成中...' : '生成预测' }}
         </button>
       </div>
     </div>
 
     <div class="content-section">
-      <div v-if="loading" class="loading-container">
-        <div class="loading-spinner"></div>
-        <p>分析历史数据并生成预测...</p>
-      </div>
+      <LoadingSpinner v-if="loading" message="分析历史数据并生成预测..." />
 
-      <div v-else-if="error" class="error-container">
+      <BaseCard v-else-if="error" variant="danger">
         <div class="error-message">
-          <i class="icon-error"></i>
           <p>{{ error }}</p>
           <button @click="clearError" class="btn btn-primary">重试</button>
         </div>
-      </div>
+      </BaseCard>
 
       <div v-else class="prediction-content">
         <!-- Latest Prediction -->
-        <div v-if="predictions.length > 0" class="latest-prediction">
-          <div class="prediction-header">
-            <h3>最新预测</h3>
-            <div class="prediction-meta">
-              <span>算法: {{ getAlgorithmDisplay(predictions[0].algorithm) }}</span>
-              <span>置信度: {{ (predictions[0].confidence_score * 100).toFixed(1) }}%</span>
-              <span>生成时间: {{ formatDate(predictions[0].created_at) }}</span>
+        <BaseCard v-if="latestPrediction" variant="primary" class="latest-prediction">
+          <template #header>
+            <div>
+              <h3 class="card-title">最新预测</h3>
+              <div class="prediction-meta">
+                <span>算法: {{ getAlgorithmName(latestPrediction.algorithm) }}</span>
+                <span>置信度: {{ formatPercentage(latestPrediction.confidence_score) }}</span>
+                <span>生成时间: {{ formatDate(latestPrediction.created_at) }}</span>
+              </div>
             </div>
-          </div>
-
+          </template>
           <PredictionDisplay
-            :prediction="predictions[0]"
+            :prediction="latestPrediction"
             :show-details="showDetails"
             @toggle-details="showDetails = !showDetails"
           />
-        </div>
+        </BaseCard>
 
         <!-- No Predictions Yet -->
-        <div v-else class="empty-state">
-          <div class="empty-icon">🔮</div>
-          <h3>暂无预测结果</h3>
-          <p>请先生成预测以查看分析结果</p>
-          <button @click="generateNewPrediction" class="btn btn-primary">
-            生成第一个预测
-          </button>
-        </div>
+        <EmptyState
+          v-else
+          icon="🔮"
+          title="暂无预测结果"
+          description="请先生成预测以查看分析结果"
+          action-text="生成第一个预测"
+          @action="generateNewPrediction"
+        />
 
         <!-- Prediction History -->
         <div v-if="predictions.length > 1" class="prediction-history">
@@ -85,19 +80,18 @@
 
           <div v-if="showHistory" class="history-list">
             <div
-              v-for="(prediction, index) in predictions.slice(1)"
+              v-for="prediction in predictions.slice(1)"
               :key="prediction.id"
               class="history-item"
             >
               <div class="history-meta">
-                <span>{{ getAlgorithmDisplay(prediction.algorithm) }}</span>
+                <span>{{ getAlgorithmName(prediction.algorithm) }}</span>
                 <span>{{ formatDate(prediction.created_at) }}</span>
                 <span>置信度: {{ (prediction.confidence_score * 100).toFixed(1) }}%</span>
               </div>
               <PredictionDisplay
                 :prediction="prediction"
                 :compact="true"
-                @select="selectPrediction(prediction)"
               />
             </div>
           </div>
@@ -139,7 +133,7 @@
               :key="stat.algorithm"
               class="algorithm-stat"
             >
-              <h4>{{ getAlgorithmDisplay(stat.algorithm) }}</h4>
+              <h4>{{ getAlgorithmName(stat.algorithm) }}</h4>
               <div class="stat-details">
                 <p>预测次数: {{ stat.count }}</p>
                 <p>平均准确率: {{ (stat.avgAccuracy * 100).toFixed(1) }}%</p>
@@ -155,72 +149,55 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useSuperLottoStore } from '@/stores/superLotto'
 import PredictionDisplay from '@/components/super-lotto/PredictionDisplay.vue'
 import AlgorithmSelector from '@/components/super-lotto/AlgorithmSelector.vue'
+import BaseCard from '@/components/common/BaseCard.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
-// Define types locally to avoid circular dependencies
-interface PredictionResult {
-  id: number
-  algorithm: string
-  front_numbers: number[]
-  back_numbers: number[]
-  confidence_score: number
-  reasoning: any
-  analysis_period_days: number
-  sample_size: number
-  created_at: string
-  is_validated: boolean
-}
+import { usePrediction } from '@/composables/usePrediction'
+import { useAlgorithm } from '@/composables/useAlgorithm'
+import { formatDate, formatPercentage, formatConfidence } from '@/utils/formatters'
+import { ANALYSIS_PERIODS } from '@/constants/lottery'
+import type { AlgorithmId, PredictionResult } from '@/types/superLotto'
 
-interface PredictionParams {
-  algorithm: string
-  analysis_period_days?: number
-  custom_parameters?: any
-  include_reasoning?: boolean
-}
+// Use composables
+const {
+  selectedAlgorithm,
+  analysisPeriod,
+  isGenerating,
+  predictions,
+  loading,
+  error,
+  latestPrediction,
+  validatedPredictions,
+  averageAccuracy,
+  bestPrediction,
+  generatePrediction,
+  loadPredictions,
+  clearError
+} = usePrediction({ autoLoad: true, defaultPeriod: 90 })
 
-type PredictionAlgorithm = 'WEIGHTED_FREQUENCY' | 'PATTERN_BASED' | 'MARKOV_CHAIN' | 'ENSEMBLE' | 'HOT_NUMBERS' | 'COLD_NUMBERS' | 'POSITION_ANALYSIS'
+const { getAlgorithmName } = useAlgorithm()
 
-const superLottoStore = useSuperLottoStore()
-
-// Reactive state
-const selectedAlgorithm = ref<PredictionAlgorithm>('WEIGHTED_FREQUENCY' as PredictionAlgorithm)
-const analysisPeriod = ref(90)
+// Local state
 const showDetails = ref(false)
 const showHistory = ref(false)
 
 // Computed properties
-const loading = computed(() => superLottoStore.loading)
-const error = computed(() => superLottoStore.error)
-const predictions = computed(() => superLottoStore.predictions)
-
-const validatedPredictions = computed(() => {
-  return predictions.value.filter(p => p.is_validated)
-})
-
-const averageAccuracy = computed(() => {
-  if (validatedPredictions.value.length === 0) return 0
-  const sum = validatedPredictions.value.reduce((acc, p) => {
-    // This would calculate hit rate - for now, use confidence score as proxy
-    return acc + p.confidence_score
-  }, 0)
-  return sum / validatedPredictions.value.length
-})
-
 const maxAccuracy = computed(() => {
   if (validatedPredictions.value.length === 0) return 0
-  return Math.max(...validatedPredictions.value.map(p => p.confidence_score))
+  return Math.max(...validatedPredictions.value.map((p: PredictionResult) => p.confidence_score))
 })
 
 const minAccuracy = computed(() => {
   if (validatedPredictions.value.length === 0) return 0
-  return Math.min(...validatedPredictions.value.map(p => p.confidence_score))
+  return Math.min(...validatedPredictions.value.map((p: PredictionResult) => p.confidence_score))
 })
 
 const algorithmStats = computed(() => {
   const stats = new Map()
-  predictions.value.forEach(p => {
+  predictions.value.forEach((p: PredictionResult) => {
     const key = p.algorithm
     if (!stats.has(key)) {
       stats.set(key, {
@@ -235,7 +212,7 @@ const algorithmStats = computed(() => {
     const stat = stats.get(key)!
     stat.count++
     stat.accuracies.push(p.confidence_score)
-    stat.avgAccuracy = stat.accuracies.reduce((a, b) => a + b, 0) / stat.accuracies.length
+    stat.avgAccuracy = stat.accuracies.reduce((a: number, b: number) => a + b, 0) / stat.accuracies.length
     stat.maxAccuracy = Math.max(...stat.accuracies)
     stat.minAccuracy = Math.min(...stat.accuracies)
   })
@@ -244,80 +221,24 @@ const algorithmStats = computed(() => {
 
 // Methods
 const generateNewPrediction = async () => {
-  try {
-    await superLottoStore.generatePrediction({
-      algorithm: selectedAlgorithm.value,
-      analysis_period_days: analysisPeriod.value,
-      include_reasoning: true,
-      custom_parameters: getAlgorithmParameters(selectedAlgorithm.value)
-    })
-  } catch (err) {
-    console.error('Failed to generate prediction:', err)
-  }
+  const customParams = getAlgorithmParameters(selectedAlgorithm.value)
+  await generatePrediction({ custom_parameters: customParams })
 }
 
-const handleAlgorithmChange = (algorithm: PredictionAlgorithm) => {
+const handleAlgorithmChange = (algorithm: AlgorithmId) => {
   selectedAlgorithm.value = algorithm
 }
 
-const handlePeriodChange = () => {
-  // Period change handled by generateNewPrediction
-}
-
-const getAlgorithmParameters = (algorithm: PredictionAlgorithm) => {
-  // Return algorithm-specific parameters
+const getAlgorithmParameters = (algorithm: string) => {
   switch (algorithm) {
     case 'ENSEMBLE':
-      return {
-        hot_weight: 0.4,
-        cold_weight: 0.3,
-        pattern_weight: 0.3
-      }
+      return { hot_weight: 0.4, cold_weight: 0.3, pattern_weight: 0.3 }
     case 'WEIGHTED_FREQUENCY':
-      return {
-        time_decay_factor: 0.9
-      }
+      return { time_decay_factor: 0.9 }
     default:
       return {}
   }
 }
-
-const getAlgorithmDisplay = (algorithm: string) => {
-  const displayMap: Record<string, string> = {
-    'WEIGHTED_FREQUENCY': '加权频率分析',
-    'PATTERN_BASED': '模式分析',
-    'MARKOV_CHAIN': '马尔可夫链',
-    'ENSEMBLE': '集成方法',
-    'HOT_NUMBERS': '热号预测',
-    'COLD_NUMBERS': '冷号预测',
-    'POSITION_ANALYSIS': '位置分析'
-  }
-  return displayMap[algorithm] || algorithm
-}
-
-const selectPrediction = (prediction: PredictionResult) => {
-  // Handle prediction selection (show details, navigate to analysis, etc.)
-  console.log('Selected prediction:', prediction)
-}
-
-const clearError = () => {
-  superLottoStore.clearError()
-}
-
-const formatDate = (dateString: string) => {
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleString('zh-CN')
-  } catch {
-    return dateString
-  }
-}
-
-// Lifecycle
-onMounted(async () => {
-  // Load existing predictions
-  await superLottoStore.fetchPredictions()
-})
 </script>
 
 <style scoped>

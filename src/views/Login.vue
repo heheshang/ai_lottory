@@ -18,20 +18,26 @@
               <el-input
                 v-model="loginForm.username"
                 placeholder="Username"
-                :prefix-icon="User"
                 size="large"
-              />
+              >
+                <template #prefix>
+                  <el-icon><User /></el-icon>
+                </template>
+              </el-input>
             </el-form-item>
             <el-form-item prop="password">
               <el-input
                 v-model="loginForm.password"
                 type="password"
                 placeholder="Password"
-                :prefix-icon="Lock"
                 size="large"
                 show-password
                 @keyup.enter="handleLogin"
-              />
+              >
+                <template #prefix>
+                  <el-icon><Lock /></el-icon>
+                </template>
+              </el-input>
             </el-form-item>
             <el-form-item>
               <el-button
@@ -58,38 +64,50 @@
               <el-input
                 v-model="registerForm.username"
                 placeholder="Username"
-                :prefix-icon="User"
                 size="large"
-              />
+              >
+                <template #prefix>
+                  <el-icon><User /></el-icon>
+                </template>
+              </el-input>
             </el-form-item>
             <el-form-item prop="email">
               <el-input
                 v-model="registerForm.email"
                 placeholder="Email (optional)"
-                :prefix-icon="Message"
                 size="large"
-              />
+              >
+                <template #prefix>
+                  <el-icon><Message /></el-icon>
+                </template>
+              </el-input>
             </el-form-item>
             <el-form-item prop="password">
               <el-input
                 v-model="registerForm.password"
                 type="password"
                 placeholder="Password"
-                :prefix-icon="Lock"
                 size="large"
                 show-password
-              />
+              >
+                <template #prefix>
+                  <el-icon><Lock /></el-icon>
+                </template>
+              </el-input>
             </el-form-item>
             <el-form-item prop="confirmPassword">
               <el-input
                 v-model="registerForm.confirmPassword"
                 type="password"
                 placeholder="Confirm Password"
-                :prefix-icon="Lock"
                 size="large"
                 show-password
                 @keyup.enter="handleRegister"
-              />
+              >
+                <template #prefix>
+                  <el-icon><Lock /></el-icon>
+                </template>
+              </el-input>
             </el-form-item>
             <el-form-item>
               <el-button
