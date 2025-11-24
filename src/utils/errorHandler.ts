@@ -221,7 +221,279 @@ const ERROR_CONFIGS: Record<ErrorCode, ErrorConfig> = {
     notificationLevel: 'modal'
   },
 
-  // ... other error configurations would be defined here
+  // Additional Network Errors
+  [ErrorCode.NETWORK_CONNECTION_FAILED]: {
+    category: ErrorCategory.NETWORK,
+    severity: 'high',
+    recoverable: true,
+    userMessage: '网络连接失败，请检查网络设置',
+    technicalMessage: 'Network connection failed',
+    suggestions: ['检查网络连接', '尝试重新连接', '检查防火墙设置'],
+    retryStrategy: {
+      maxRetries: 2,
+      baseDelay: 1000,
+      maxDelay: 4000,
+      backoffMultiplier: 2,
+      retryableErrors: [ErrorCode.NETWORK_CONNECTION_FAILED]
+    },
+    notificationLevel: 'toast'
+  },
+
+  // Additional API Errors
+  [ErrorCode.API_UNAUTHORIZED]: {
+    category: ErrorCategory.API,
+    severity: 'high',
+    recoverable: true,
+    userMessage: '未授权访问，请重新登录',
+    technicalMessage: 'API authorization failed',
+    suggestions: ['重新登录', '检查权限设置'],
+    notificationLevel: 'modal'
+  },
+
+  [ErrorCode.API_NOT_FOUND]: {
+    category: ErrorCategory.API,
+    severity: 'medium',
+    recoverable: true,
+    userMessage: '请求的资源不存在',
+    technicalMessage: 'API endpoint not found',
+    suggestions: ['检查请求地址', '刷新页面重试'],
+    notificationLevel: 'toast'
+  },
+
+  [ErrorCode.API_INVALID_RESPONSE]: {
+    category: ErrorCategory.API,
+    severity: 'medium',
+    recoverable: true,
+    userMessage: '服务器响应格式错误',
+    technicalMessage: 'Invalid API response format',
+    suggestions: ['稍后重试', '联系技术支持'],
+    retryStrategy: {
+      maxRetries: 1,
+      baseDelay: 1000,
+      maxDelay: 2000,
+      backoffMultiplier: 1,
+      retryableErrors: [ErrorCode.API_INVALID_RESPONSE]
+    },
+    notificationLevel: 'toast'
+  },
+
+  // Additional Validation Errors
+  [ErrorCode.VALIDATION_OUT_OF_RANGE]: {
+    category: ErrorCategory.VALIDATION,
+    severity: 'low',
+    recoverable: true,
+    userMessage: '输入值超出允许范围',
+    technicalMessage: 'Input value out of valid range',
+    suggestions: ['检查输入范围', '参考有效范围说明'],
+    notificationLevel: 'toast'
+  },
+
+  [ErrorCode.VALIDATION_INVALID_COMBINATION]: {
+    category: ErrorCategory.VALIDATION,
+    severity: 'low',
+    recoverable: true,
+    userMessage: '输入组合无效',
+    technicalMessage: 'Invalid input combination',
+    suggestions: ['检查组合规则', '重新选择输入'],
+    notificationLevel: 'toast'
+  },
+
+  // Additional Permission Errors
+  [ErrorCode.PERMISSION_DENIED]: {
+    category: ErrorCategory.PERMISSION,
+    severity: 'high',
+    recoverable: false,
+    userMessage: '权限不足，无法执行此操作',
+    technicalMessage: 'Permission denied',
+    suggestions: ['联系管理员', '检查用户权限'],
+    notificationLevel: 'modal'
+  },
+
+  [ErrorCode.PERMISSION_EXPIRED]: {
+    category: ErrorCategory.PERMISSION,
+    severity: 'high',
+    recoverable: true,
+    userMessage: '权限已过期，请重新登录',
+    technicalMessage: 'Permission expired',
+    suggestions: ['重新登录', '更新权限'],
+    notificationLevel: 'modal'
+  },
+
+  [ErrorCode.PERMISSION_INSUFFICIENT]: {
+    category: ErrorCategory.PERMISSION,
+    severity: 'medium',
+    recoverable: false,
+    userMessage: '权限级别不足',
+    technicalMessage: 'Insufficient permissions',
+    suggestions: ['升级权限等级', '联系管理员'],
+    notificationLevel: 'toast'
+  },
+
+  // Additional System Errors
+  [ErrorCode.SYSTEM_MEMORY]: {
+    category: ErrorCategory.SYSTEM,
+    severity: 'high',
+    recoverable: true,
+    userMessage: '内存不足，请关闭其他程序',
+    technicalMessage: 'System memory insufficient',
+    suggestions: ['关闭其他程序', '刷新页面', '重启浏览器'],
+    notificationLevel: 'modal'
+  },
+
+  [ErrorCode.SYSTEM_STORAGE]: {
+    category: ErrorCategory.SYSTEM,
+    severity: 'high',
+    recoverable: true,
+    userMessage: '存储空间不足',
+    technicalMessage: 'Storage space insufficient',
+    suggestions: ['清理存储空间', '删除临时文件'],
+    notificationLevel: 'modal'
+  },
+
+  [ErrorCode.SYSTEM_PROCESSING]: {
+    category: ErrorCategory.SYSTEM,
+    severity: 'medium',
+    recoverable: true,
+    userMessage: '系统处理错误，请重试',
+    technicalMessage: 'System processing error',
+    suggestions: ['稍后重试', '重启应用程序'],
+    retryStrategy: {
+      maxRetries: 1,
+      baseDelay: 2000,
+      maxDelay: 5000,
+      backoffMultiplier: 1,
+      retryableErrors: [ErrorCode.SYSTEM_PROCESSING]
+    },
+    notificationLevel: 'toast'
+  },
+
+  [ErrorCode.SYSTEM_CONFIGURATION]: {
+    category: ErrorCategory.SYSTEM,
+    severity: 'high',
+    recoverable: false,
+    userMessage: '系统配置错误',
+    technicalMessage: 'System configuration error',
+    suggestions: ['联系技术支持', '重新安装应用程序'],
+    notificationLevel: 'modal'
+  },
+
+  // Additional User Input Errors
+  [ErrorCode.USER_INPUT_INVALID]: {
+    category: ErrorCategory.USER_INPUT,
+    severity: 'low',
+    recoverable: true,
+    userMessage: '输入内容无效',
+    technicalMessage: 'Invalid user input',
+    suggestions: ['检查输入内容', '参考输入格式'],
+    notificationLevel: 'toast'
+  },
+
+  [ErrorCode.USER_INPUT_MISSING]: {
+    category: ErrorCategory.USER_INPUT,
+    severity: 'low',
+    recoverable: true,
+    userMessage: '缺少必填输入',
+    technicalMessage: 'Missing required user input',
+    suggestions: ['填写所有必填字段'],
+    notificationLevel: 'toast'
+  },
+
+  [ErrorCode.USER_INPUT_OUT_OF_RANGE]: {
+    category: ErrorCategory.USER_INPUT,
+    severity: 'low',
+    recoverable: true,
+    userMessage: '输入值超出有效范围',
+    technicalMessage: 'User input out of range',
+    suggestions: ['检查输入范围', '使用有效范围内的值'],
+    notificationLevel: 'toast'
+  },
+
+  // Additional Data Integrity Errors
+  [ErrorCode.DATA_CORRUPTION]: {
+    category: ErrorCategory.DATA_INTEGRITY,
+    severity: 'high',
+    recoverable: false,
+    userMessage: '数据损坏，请重新导入',
+    technicalMessage: 'Data corruption detected',
+    suggestions: ['重新导入数据', '联系技术支持'],
+    notificationLevel: 'modal'
+  },
+
+  [ErrorCode.DATA_INCONSISTENT]: {
+    category: ErrorCategory.DATA_INTEGRITY,
+    severity: 'medium',
+    recoverable: true,
+    userMessage: '数据不一致，请检查数据源',
+    technicalMessage: 'Data inconsistency detected',
+    suggestions: ['检查数据源', '重新同步数据'],
+    retryStrategy: {
+      maxRetries: 1,
+      baseDelay: 1000,
+      maxDelay: 3000,
+      backoffMultiplier: 1,
+      retryableErrors: [ErrorCode.DATA_INCONSISTENT]
+    },
+    notificationLevel: 'toast'
+  },
+
+  [ErrorCode.DATA_MISSING]: {
+    category: ErrorCategory.DATA_INTEGRITY,
+    severity: 'medium',
+    recoverable: true,
+    userMessage: '数据缺失，请补充数据',
+    technicalMessage: 'Required data missing',
+    suggestions: ['导入缺失数据', '检查数据完整性'],
+    notificationLevel: 'toast'
+  },
+
+  // Additional Algorithm Errors
+  [ErrorCode.ALGORITHM_NOT_AVAILABLE]: {
+    category: ErrorCategory.ALGORITHM,
+    severity: 'medium',
+    recoverable: true,
+    userMessage: '算法不可用，请选择其他算法',
+    technicalMessage: 'Algorithm not available',
+    suggestions: ['选择其他算法', '检查算法配置'],
+    notificationLevel: 'toast'
+  },
+
+  [ErrorCode.ALGORITHM_CONFIGURATION]: {
+    category: ErrorCategory.ALGORITHM,
+    severity: 'medium',
+    recoverable: true,
+    userMessage: '算法配置错误',
+    technicalMessage: 'Algorithm configuration error',
+    suggestions: ['检查算法参数', '使用默认配置'],
+    notificationLevel: 'toast'
+  },
+
+  [ErrorCode.ALGORITHM_EXECUTION]: {
+    category: ErrorCategory.ALGORITHM,
+    severity: 'medium',
+    recoverable: true,
+    userMessage: '算法执行失败，请重试',
+    technicalMessage: 'Algorithm execution failed',
+    suggestions: ['稍后重试', '选择其他算法', '检查输入数据'],
+    retryStrategy: {
+      maxRetries: 1,
+      baseDelay: 1000,
+      maxDelay: 3000,
+      backoffMultiplier: 1,
+      retryableErrors: [ErrorCode.ALGORITHM_EXECUTION]
+    },
+    notificationLevel: 'toast'
+  },
+
+  // Additional Prediction Errors
+  [ErrorCode.PREDICTION_INVALID_PARAMS]: {
+    category: ErrorCategory.PREDICTION,
+    severity: 'medium',
+    recoverable: true,
+    userMessage: '预测参数无效',
+    technicalMessage: 'Invalid prediction parameters',
+    suggestions: ['检查预测参数', '使用默认参数'],
+    notificationLevel: 'toast'
+  }
 } as const
 
 // =============================================================================

@@ -1,13 +1,35 @@
 <template>
   <div class="empty-state">
-    <div class="empty-icon">{{ icon }}</div>
-    <h3 v-if="title" class="empty-title">{{ title }}</h3>
-    <p v-if="description" class="empty-description">{{ description }}</p>
-    <slot name="actions">
-      <button v-if="actionText" @click="handleAction" class="btn btn-primary">
-        {{ actionText }}
-      </button>
-    </slot>
+    <div v-if="icon" class="empty-state__icon">
+      {{ icon }}
+    </div>
+    
+    <div v-else-if="showDefaultIcon" class="empty-state__icon">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="#currentColor"/>
+      </svg>
+    </div>
+    
+    <h3 v-if="title" class="empty-state__title">
+      {{ title }}
+    </h3>
+    
+    <p v-if="description" class="empty-state__description">
+      {{ description }}
+    </p>
+    
+    <div v-if="$slots.default" class="empty-state__content">
+      <slot />
+    </div>
+    
+    <button 
+      v-if="actionText" 
+      @click="$emit('action')" 
+      class="empty-state__action"
+      :disabled="actionDisabled"
+    >
+      {{ actionText }}
+    </button>
   </div>
 </template>
 
@@ -17,21 +39,18 @@ interface Props {
   title?: string
   description?: string
   actionText?: string
+  actionDisabled?: boolean
+  showDefaultIcon?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  icon: '📭',
-  title: '暂无数据',
-  description: ''
+withDefaults(defineProps<Props>(), {
+  showDefaultIcon: true,
+  actionDisabled: false
 })
 
-const emit = defineEmits<{
+defineEmits<{
   action: []
 }>()
-
-const handleAction = () => {
-  emit('action')
-}
 </script>
 
 <style scoped>
@@ -42,56 +61,62 @@ const handleAction = () => {
   justify-content: center;
   padding: 60px 20px;
   text-align: center;
+  color: #6c757d;
 }
 
-.empty-icon {
-  font-size: 4rem;
+.empty-state__icon {
   margin-bottom: 20px;
-  opacity: 0.6;
+  font-size: 4rem;
+  color: #dee2e6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.empty-title {
-  color: #2c3e50;
+.empty-state__icon svg {
+  width: 64px;
+  height: 64px;
+  color: #dee2e6;
+}
+
+.empty-state__title {
   margin: 0 0 10px 0;
-  font-size: 1.3rem;
+  color: #495057;
+  font-size: 1.25rem;
+  font-weight: 500;
 }
 
-.empty-description {
-  color: #7f8c8d;
+.empty-state__description {
   margin: 0 0 20px 0;
+  color: #6c757d;
   font-size: 1rem;
+  line-height: 1.5;
   max-width: 400px;
 }
 
-.btn {
-  padding: 10px 24px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color 0.3s;
+.empty-state__content {
+  margin-bottom: 20px;
 }
 
-.btn-primary {
-  background-color: #3498db;
+.empty-state__action {
+  padding: 10px 20px;
+  background: #007bff;
   color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
-.btn-primary:hover {
-  background-color: #2980b9;
+.empty-state__action:hover:not(:disabled) {
+  background: #0056b3;
 }
 
-@media (max-width: 768px) {
-  .empty-state {
-    padding: 40px 20px;
-  }
-
-  .empty-icon {
-    font-size: 3rem;
-  }
-
-  .empty-title {
-    font-size: 1.1rem;
-  }
+.empty-state__action:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 </style>

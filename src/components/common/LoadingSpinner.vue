@@ -1,77 +1,86 @@
 <template>
-  <div class="loading-container" :class="{ overlay: isOverlay }">
-    <div class="loading-content">
-      <div class="spinner" :class="size"></div>
-      <p v-if="message" class="loading-message">{{ message }}</p>
-      <div v-if="showProgress && progress !== undefined" class="progress-bar">
-        <div class="progress-fill" :style="{ width: `${progress}%` }"></div>
+  <div class="loading-spinner" :class="`loading-spinner--${size}`">
+    <div class="spinner-circle">
+      <div 
+        class="spinner-path" 
+        :style="{
+          width: spinnerSize,
+          height: spinnerSize,
+          borderTopColor: color,
+          borderLeftColor: color
+        }"
+      ></div>
+    </div>
+    
+    <div v-if="message" class="loading-spinner__message">
+      {{ message }}
+    </div>
+    
+    <div v-if="showProgress && progress !== undefined" class="loading-spinner__progress">
+      <div class="progress-bar">
+        <div 
+          class="progress-fill" 
+          :style="{ width: `${progress}%`, backgroundColor: color }"
+        ></div>
       </div>
+      <span class="progress-text">{{ progress }}%</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 interface Props {
-  message?: string
   size?: 'small' | 'medium' | 'large'
-  isOverlay?: boolean
-  showProgress?: boolean
+  color?: string
+  message?: string
   progress?: number
+  showProgress?: boolean
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   size: 'medium',
-  isOverlay: false,
+  color: '#007bff',
   showProgress: false
+})
+
+const spinnerSize = computed(() => {
+  const sizes = {
+    small: '20px',
+    medium: '32px',
+    large: '48px'
+  }
+  return sizes[props.size]
 })
 </script>
 
 <style scoped>
-.loading-container {
+.loading-spinner {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
+  padding: 20px;
 }
 
-.loading-container.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.95);
-  z-index: 9999;
+.loading-spinner--small {
+  padding: 10px;
 }
 
-.loading-content {
-  text-align: center;
+.loading-spinner--large {
+  padding: 30px;
 }
 
-.spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
+.spinner-circle {
+  position: relative;
+  display: inline-block;
+}
+
+.spinner-path {
+  border: 3px solid #f3f3f3;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin: 0 auto 20px;
-}
-
-.spinner.small {
-  width: 24px;
-  height: 24px;
-  border-width: 3px;
-}
-
-.spinner.medium {
-  width: 40px;
-  height: 40px;
-}
-
-.spinner.large {
-  width: 60px;
-  height: 60px;
-  border-width: 6px;
 }
 
 @keyframes spin {
@@ -79,39 +88,77 @@ withDefaults(defineProps<Props>(), {
   100% { transform: rotate(360deg); }
 }
 
-.loading-message {
-  color: #7f8c8d;
-  margin: 0 0 20px 0;
-  font-size: 0.95rem;
+.loading-spinner__message {
+  margin-top: 12px;
+  color: #6c757d;
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.loading-spinner__progress {
+  margin-top: 16px;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .progress-bar {
-  width: 200px;
-  height: 4px;
-  background: #ecf0f1;
-  border-radius: 2px;
+  width: 100%;
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 3px;
   overflow: hidden;
-  margin: 0 auto;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3498db, #2ecc71);
+  border-radius: 3px;
   transition: width 0.3s ease;
 }
 
-@media (max-width: 768px) {
-  .loading-container {
-    padding: 30px 20px;
-  }
+.progress-text {
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 500;
+}
 
-  .spinner.large {
-    width: 50px;
-    height: 50px;
-  }
+/* Size variations */
+.loading-spinner--small .loading-spinner__message {
+  font-size: 12px;
+  margin-top: 8px;
+}
 
+.loading-spinner--small .loading-spinner__progress {
+  width: 150px;
+  margin-top: 12px;
+}
+
+.loading-spinner--large .loading-spinner__message {
+  font-size: 16px;
+  margin-top: 16px;
+}
+
+.loading-spinner--large .loading-spinner__progress {
+  width: 250px;
+  margin-top: 20px;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .spinner-path {
+    border-color: #495057;
+  }
+  
+  .loading-spinner__message,
+  .progress-text {
+    color: #adb5bd;
+  }
+  
   .progress-bar {
-    width: 150px;
+    background: #495057;
   }
 }
 </style>

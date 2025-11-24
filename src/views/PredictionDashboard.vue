@@ -167,7 +167,7 @@ import { usePrediction } from '@/composables/usePrediction'
 import { useAlgorithm } from '@/composables/useAlgorithm'
 import { formatDate, formatPercentage, formatConfidence } from '@/utils/formatters'
 import { ANALYSIS_PERIODS } from '@/constants/lottery'
-import type { AlgorithmId, PredictionResult } from '@/types/superLotto'
+import type { AlgorithmId, PredictionResult } from '@/types'
 
 // Use composables
 const {

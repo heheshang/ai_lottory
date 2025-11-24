@@ -5,7 +5,7 @@
 
 import { ref, computed, type Ref } from 'vue'
 import { useSuperLottoStore } from '@/stores/superLotto'
-import type { PredictionResult, PredictionParams } from '@/types/superLotto'
+import type { PredictionResult, PredictionParams, AlgorithmId } from '@/types/superLotto'
 
 export interface UsePredictionOptions {
   autoLoad?: boolean
@@ -74,7 +74,7 @@ export function usePrediction(options: UsePredictionOptions = {}) {
     isGenerating.value = true
     try {
       await store.generatePrediction({
-        algorithm: selectedAlgorithm.value,
+        algorithm: selectedAlgorithm.value as AlgorithmId,
         analysis_period_days: analysisPeriod.value,
         include_reasoning: true,
         ...params

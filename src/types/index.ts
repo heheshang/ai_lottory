@@ -92,3 +92,12 @@ export interface ApiResponse<T> {
 
 // Common types
 export type LotteryType = 'powerball' | 'megamillions' | 'lotto' | 'custom'
+
+// Export ErrorCode from error handler for use across the application
+export { ErrorCode, ErrorCategory } from '@/utils/errorHandler'
+
+// Re-export from specific modules
+export * from './superLotto'
+
+// Reference Tauri types
+/// <reference path="./tauri.d.ts" />

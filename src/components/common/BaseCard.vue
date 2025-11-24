@@ -1,128 +1,173 @@
 <template>
-  <div :class="['base-card', variant, { hover: hoverable, clickable }]" @click="handleClick">
-    <div v-if="$slots.header || title" class="card-header">
-      <slot name="header">
-        <h3 v-if="title" class="card-title">{{ title }}</h3>
-      </slot>
-      <div v-if="$slots.actions" class="card-actions">
-        <slot name="actions"></slot>
+  <div 
+    class="base-card"
+    :class="[
+      `base-card--${variant}`,
+      {
+        'base-card--loading': loading,
+        'base-card--bordered': bordered,
+        'base-card--shadow': shadow,
+        'base-card--hoverable': hoverable
+      }
+    ]"
+  >
+    <div v-if="$slots.header" class="base-card__header">
+      <slot name="header" />
+    </div>
+    
+    <div class="base-card__body" :class="{ 'base-card__body--padded': padded }">
+      <div v-if="loading" class="base-card__loading">
+        <div class="loading-spinner"></div>
+        <span v-if="loadingText" class="loading-text">{{ loadingText }}</span>
       </div>
+      <slot v-else />
     </div>
     
-    <div class="card-body" :class="{ padding: !noPadding }">
-      <slot></slot>
-    </div>
-    
-    <div v-if="$slots.footer" class="card-footer">
-      <slot name="footer"></slot>
+    <div v-if="$slots.footer" class="base-card__footer">
+      <slot name="footer" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 interface Props {
-  title?: string
-  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger'
+  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
+  loading?: boolean
+  loadingText?: string
+  bordered?: boolean
+  shadow?: boolean
   hoverable?: boolean
-  clickable?: boolean
-  noPadding?: boolean
+  padded?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   variant: 'default',
+  loading: false,
+  bordered: true,
+  shadow: true,
   hoverable: false,
-  clickable: false,
-  noPadding: false
+  padded: true
 })
-
-const emit = defineEmits<{
-  click: []
-}>()
-
-const handleClick = () => {
-  if (props.clickable) {
-    emit('click')
-  }
-}
 </script>
 
 <style scoped>
 .base-card {
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   transition: all 0.3s ease;
 }
 
-.base-card.hover:hover {
+.base-card--bordered {
+  border: 1px solid #e1e5e9;
+}
+
+.base-card--shadow {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.base-card--hoverable:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
-.base-card.clickable {
-  cursor: pointer;
-}
-
-.base-card.primary {
-  border: 2px solid #3498db;
-  background: #f8f9ff;
-}
-
-.base-card.success {
-  border: 2px solid #27ae60;
-  background: #f0f9f4;
-}
-
-.base-card.warning {
-  border: 2px solid #f39c12;
-  background: #fffaf0;
-}
-
-.base-card.danger {
-  border: 2px solid #e74c3c;
-  background: #fff5f5;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.base-card__header {
   padding: 16px 20px;
-  border-bottom: 1px solid #ecf0f1;
-}
-
-.card-title {
-  margin: 0;
-  font-size: 1.1rem;
-  color: #2c3e50;
-  font-weight: 600;
-}
-
-.card-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.card-body {
-  color: #2c3e50;
-}
-
-.card-body.padding {
-  padding: 20px;
-}
-
-.card-footer {
-  padding: 16px 20px;
-  border-top: 1px solid #ecf0f1;
+  border-bottom: 1px solid #e1e5e9;
   background: #f8f9fa;
 }
 
-@media (max-width: 768px) {
-  .card-header,
-  .card-body.padding,
-  .card-footer {
-    padding: 12px 16px;
-  }
+.base-card__body {
+  position: relative;
+}
+
+.base-card__body--padded {
+  padding: 20px;
+}
+
+.base-card__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #6c757d;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.base-card__footer {
+  padding: 16px 20px;
+  border-top: 1px solid #e1e5e9;
+  background: #f8f9fa;
+}
+
+/* Variant styles */
+.base-card--primary {
+  border-color: #007bff;
+}
+
+.base-card--primary .base-card__header,
+.base-card--primary .base-card__footer {
+  background: #e7f3ff;
+  border-color: #007bff;
+}
+
+.base-card--success {
+  border-color: #28a745;
+}
+
+.base-card--success .base-card__header,
+.base-card--success .base-card__footer {
+  background: #e8f5e8;
+  border-color: #28a745;
+}
+
+.base-card--warning {
+  border-color: #ffc107;
+}
+
+.base-card--warning .base-card__header,
+.base-card--warning .base-card__footer {
+  background: #fff8e1;
+  border-color: #ffc107;
+}
+
+.base-card--danger {
+  border-color: #dc3545;
+}
+
+.base-card--danger .base-card__header,
+.base-card--danger .base-card__footer {
+  background: #fde8e8;
+  border-color: #dc3545;
+}
+
+.base-card--info {
+  border-color: #17a2b8;
+}
+
+.base-card--info .base-card__header,
+.base-card--info .base-card__footer {
+  background: #e8f4f8;
+  border-color: #17a2b8;
 }
 </style>

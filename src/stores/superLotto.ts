@@ -19,9 +19,9 @@ import type {
   FilterState,
   PaginationParams,
   SearchParams,
-  ErrorInfo,
-  VALIDATION_RULES
+  ErrorInfo
 } from '@/types/superLotto'
+import { VALIDATION_RULES } from '@/constants/lottery'
 
 import { useSuperLottoApi } from '@/api/superLotto'
 import { useErrorHandler } from '@/utils/errorHandler'
@@ -44,6 +44,17 @@ const DEFAULT_CONFIG: SuperLottoStoreConfig = {
   maxCacheSize: 1000,
   enablePersistence: true,
   debugMode: false
+}
+
+interface AlgorithmStats {
+  algorithm_id: AlgorithmId
+  algorithm_name: string
+  count: number
+  total_confidence: number
+  average_confidence: number
+  max_confidence: number
+  validated_count: number
+  average_accuracy: number
 }
 
 // =============================================================================
@@ -93,7 +104,7 @@ export const useSuperLottoStore = defineStore('superLotto', () => {
   const algorithms = ref<AlgorithmConfig[]>([])
 
   // UI State
-  const selectionState = reactive<SelectionState<string>>({
+  const selectionState = reactive<SelectionState<SuperLottoDraw>>({
     selected_items: [],
     selected_ids: [],
     last_selected: undefined,
@@ -197,8 +208,8 @@ export const useSuperLottoStore = defineStore('superLotto', () => {
     if (searchState.query) {
       filtered = filtered.filter(draw =>
         draw.draw_number.toString().includes(searchState.query) ||
-        draw.red_numbers.some(n => n.toString().includes(searchState.query)) ||
-        draw.blue_number.toString().includes(searchState.query)
+        draw.front_numbers.some((n: number) => n.toString().includes(searchState.query)) ||
+        draw.back_numbers.some((n: number) => n.toString().includes(searchState.query))
       )
     }
 
@@ -221,7 +232,7 @@ export const useSuperLottoStore = defineStore('superLotto', () => {
         // Filter based on predictions for these draws
         filtered = filtered.filter(draw => {
           return predictions.value.some(prediction =>
-            prediction.draw_number === draw.draw_number &&
+            prediction.front_numbers[0] === draw.front_numbers[0] && // Simple match using first number
             algorithmFilter.algorithm_ids!.includes(prediction.algorithm_id)
           )
         })
@@ -267,7 +278,7 @@ export const useSuperLottoStore = defineStore('superLotto', () => {
       if (!stats.has(prediction.algorithm_id)) {
         stats.set(prediction.algorithm_id, {
           algorithm_id: prediction.algorithm_id,
-          algorithm_name: prediction.algorithm_name,
+          algorithm_name: prediction.algorithm,
           count: 0,
           total_confidence: 0,
           average_confidence: 0,
@@ -291,17 +302,6 @@ export const useSuperLottoStore = defineStore('superLotto', () => {
 
     return Array.from(stats.values())
   })
-
-  interface AlgorithmStats {
-    algorithm_id: AlgorithmId
-    algorithm_name: string
-    count: number
-    total_confidence: number
-    average_confidence: number
-    max_confidence: number
-    validated_count: number
-    average_accuracy: number
-  }
 
   // =============================================================================
   // Loading State Management
@@ -370,12 +370,12 @@ export const useSuperLottoStore = defineStore('superLotto', () => {
 
           // Update pagination
           pagination.limit = params.limit || 100
-          pagination.page = Math.floor((params.offset || 0) / pagination.limit) + 1
+          pagination.page = Math.floor(((params as any).offset || 0) / pagination.limit) + 1
           pagination.total = result.total
           pagination.has_next = pagination.page * pagination.limit < result.total
           pagination.has_prev = pagination.page > 1
 
-          // Cache the result
+          // Cache result
           setCache(cacheKey, result)
         }
         return result
@@ -514,7 +514,7 @@ export const useSuperLottoStore = defineStore('superLotto', () => {
         incrementRetryCount()
         throw error
       }
-    }, '批量生成预测...', true)
+    }, '批量生成预测...')
   }
 
   // =============================================================================
@@ -621,8 +621,8 @@ export const useSuperLottoStore = defineStore('superLotto', () => {
     const errors: string[] = []
 
     // Validate red numbers
-    if (redNumbers.length !== VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.count) {
-      errors.push(`前区号码数量必须为${VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.count}个`)
+    if (redNumbers.length !== 5) {
+      errors.push(`前区号码数量必须为5个`)
     }
 
     if (new Set(redNumbers).size !== redNumbers.length) {
@@ -630,16 +630,16 @@ export const useSuperLottoStore = defineStore('superLotto', () => {
     }
 
     for (const num of redNumbers) {
-      if (num < VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.range[0] ||
-          num > VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.range[1]) {
-        errors.push(`前区号码必须在${VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.range[0]}-${VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.range[1]}范围内`)
+      if (num < VALIDATION_RULES.FRONT_NUMBER_RANGE.min ||
+          num > VALIDATION_RULES.FRONT_NUMBER_RANGE.max) {
+        errors.push(`前区号码必须在${VALIDATION_RULES.FRONT_NUMBER_RANGE.min}-${VALIDATION_RULES.FRONT_NUMBER_RANGE.max}范围内`)
       }
     }
 
     // Validate blue number
-    if (blueNumber < VALIDATION_RULES.SUPER_LOTTO.BLUE_NUMBER.range[0] ||
-        blueNumber > VALIDATION_RULES.SUPER_LOTTO.BLUE_NUMBER.range[1]) {
-      errors.push(`后区号码必须在${VALIDATION_RULES.SUPER_LOTTO.BLUE_NUMBER.range[0]}-${VALIDATION_RULES.SUPER_LOTTO.BLUE_NUMBER.range[1]}范围内`)
+    if (blueNumber < VALIDATION_RULES.BACK_NUMBER_RANGE.min ||
+        blueNumber > VALIDATION_RULES.BACK_NUMBER_RANGE.max) {
+      errors.push(`后区号码必须在${VALIDATION_RULES.BACK_NUMBER_RANGE.min}-${VALIDATION_RULES.BACK_NUMBER_RANGE.max}范围内`)
     }
 
     return {
@@ -678,16 +678,18 @@ export const useSuperLottoStore = defineStore('superLotto', () => {
 
     draws.forEach(draw => {
       // Count red numbers
-      draw.red_numbers.forEach(num => {
+      draw.front_numbers.forEach((num: number) => {
         stats.redNumberFrequency.set(num, (stats.redNumberFrequency.get(num) || 0) + 1)
       })
 
-      // Count blue number
-      stats.blueNumberFrequency.set(draw.blue_number, (stats.blueNumberFrequency.get(draw.blue_number) || 0) + 1)
+      // Count blue numbers
+      draw.back_numbers.forEach((num: number) => {
+        stats.blueNumberFrequency.set(num, (stats.blueNumberFrequency.get(num) || 0) + 1)
+      })
 
-      // Sum jackpot
-      if (draw.jackpot_amount) {
-        totalJackpot += draw.jackpot_amount
+      // Sum jackpot (using prize_pool as equivalent)
+      if (draw.prize_pool) {
+        totalJackpot += draw.prize_pool
         jackpotCount++
       }
     })
@@ -778,7 +780,7 @@ export const useSuperLottoStore = defineStore('superLotto', () => {
   // Auto-refresh
   // =============================================================================
 
-  let autoRefreshTimer: NodeJS.Timeout | null = null
+  let autoRefreshTimer: number | null = null
 
   const startAutoRefresh = () => {
     if (!config.enableAutoRefresh) return
@@ -787,7 +789,7 @@ export const useSuperLottoStore = defineStore('superLotto', () => {
     autoRefreshTimer = setInterval(async () => {
       if (!isLoading.value) {
         try {
-          await fetchDraws({ limit: pagination.limit, offset: (pagination.page - 1) * pagination.limit })
+          await fetchDraws({ limit: pagination.limit })
         } catch (error) {
           console.warn('Auto-refresh failed:', error)
         }
@@ -943,5 +945,3 @@ export const initializeSuperLottoStore = async () => {
 
   console.log('🎯 [Super Lotto Store] Enhanced store initialized successfully')
 }
-
-console.log('🎯 [Super Lotto Store] Enhanced Pinia store with advanced patterns loaded')

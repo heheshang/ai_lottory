@@ -81,7 +81,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useSuperLottoStore } from '@/stores/superLotto'
-import type { SuperLottoDraw } from '@/types/superLotto'
+import type { SuperLottoDraw } from '@/types'
 import DataTable from '@/components/super-lotto/DataTable.vue'
 import SearchFilters from '@/components/super-lotto/SearchFilters.vue'
 import DataImport from '@/components/super-lotto/DataImport.vue'
@@ -93,6 +93,7 @@ interface HistoryParams {
   sort_dir?: 'asc' | 'desc'
   start_date?: string
   end_date?: string
+  draw_number?: string
   front_numbers?: number[]
   back_numbers?: number[]
 }
@@ -104,8 +105,8 @@ const currentPage = ref(1)
 const pageSize = ref(100)
 
 // Computed properties
-const loading = computed(() => superLottoStore.loading)
-const error = computed(() => superLottoStore.error)
+const loading = computed(() => superLottoStore.isLoading)
+const error = computed(() => superLottoStore.errorMessage)
 const draws = computed(() => superLottoStore.draws)
 const totalDraws = computed(() => superLottoStore.totalDraws)
 const totalPages = computed(() => superLottoStore.totalPages)
@@ -115,7 +116,7 @@ const loadDraws = async (params: Partial<HistoryParams> = {}) => {
   try {
     await superLottoStore.fetchDraws({
       limit: pageSize.value,
-      offset: (currentPage.value - 1) * pageSize.value,
+      page: currentPage.value,
       ...params
     })
   } catch (err) {
@@ -129,9 +130,18 @@ const handleImportSuccess = async () => {
   await loadDraws()
 }
 
-const handleFilterChange = async (filters: HistoryParams) => {
+const handleFilterChange = async (filters: any) => {
   currentPage.value = 1
-  await loadDraws(filters)
+  // Convert FilterParams to HistoryParams format
+  const historyParams: Partial<HistoryParams> = {}
+  
+  if (filters.startDate) historyParams.start_date = filters.startDate
+  if (filters.endDate) historyParams.end_date = filters.endDate
+  if (filters.drawNumber) historyParams.draw_number = filters.drawNumber
+  if (filters.frontNumbers) historyParams.front_numbers = filters.frontNumbers.split(',').map(Number)
+  if (filters.backNumbers) historyParams.back_numbers = filters.backNumbers.split(',').map(Number)
+  
+  await loadDraws(historyParams)
 }
 
 const handleDrawSelect = (draw: SuperLottoDraw) => {

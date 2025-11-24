@@ -2,6 +2,9 @@
  * Core types for Super Lotto system
  */
 
+// Import NumberFrequency from main types
+import type { NumberFrequency } from './index'
+
 // Algorithm Types
 export type AlgorithmId = 
   | 'WEIGHTED_FREQUENCY'
@@ -285,6 +288,15 @@ export const createApiResponse = <T>(
   metadata
 })
 
+export const createApiError = <T>(
+  error: ErrorInfo,
+  metadata: ApiMetadata = {}
+): ApiResponse<T> => ({
+  success: false,
+  error,
+  metadata
+})
+
 export const createErrorResponse = (
   error: ErrorInfo,
   metadata: ApiMetadata = {}
@@ -345,4 +357,86 @@ export interface PaginationParams {
   limit?: number
   sort_by?: string
   sort_direction?: 'asc' | 'desc'
+}
+
+// Missing types that are being imported elsewhere
+export interface PredictionComparison {
+  predictions: PredictionResult[]
+  comparison_metrics: ComparisonMetrics[]
+  best_prediction: PredictionResult
+  generated_at: string
+}
+
+export interface ComparisonMetrics {
+  algorithm: AlgorithmId
+  confidence_score: number
+  accuracy?: number
+  hit_rate: number
+  consistency_score: number
+}
+
+export interface UnifiedTableData {
+  draws: SuperLottoDraw[]
+  predictions: PredictionResult[]
+  total_count: number
+  page: number
+  limit: number
+}
+
+export interface ExportRequest {
+  data_type: 'draws' | 'predictions' | 'analysis'
+  format: 'csv' | 'json' | 'excel'
+  filters?: Record<string, unknown>
+  date_range?: {
+    start_date: string
+    end_date: string
+  }
+}
+
+export interface ExportResult {
+  file_url: string
+  file_name: string
+  file_size: number
+  export_type: string
+  created_at: string
+}
+
+export interface HotNumberAnalysis {
+  numbers: HotColdNumber[]
+  analysis_period_days: number
+  sample_size: number
+  generated_at: string
+}
+
+export interface ColdNumberAnalysis {
+  numbers: HotColdNumber[]
+  analysis_period_days: number
+  sample_size: number
+  generated_at: string
+}
+
+// Validation rules (moved from constants to be available as type)
+export const VALIDATION_RULES = {
+  SUPER_LOTTO: {
+    RED_NUMBERS: {
+      count: 5,
+      range: [1, 35] as [number, number]
+    },
+    BLUE_NUMBER: {
+      count: 1,
+      range: [1, 12] as [number, number]
+    }
+  }
+} as const
+
+// Cache entry type
+export interface CacheEntry<T = unknown> {
+  data: T
+  timestamp: number
+  ttl: number
+}
+
+// Extend NumberFrequency to include last_drawn property
+export interface ExtendedNumberFrequency extends NumberFrequency {
+  last_drawn?: string
 }

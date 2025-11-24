@@ -183,8 +183,8 @@ const currentPeriod = ref(30)
 const currentZone = ref('FRONT')
 
 // Computed properties
-const loading = computed(() => superLottoStore.loading)
-const error = computed(() => superLottoStore.error)
+const loading = computed(() => superLottoStore.isLoading)
+const error = computed(() => superLottoStore.errorMessage)
 const hotNumbers = computed(() => superLottoStore.hotNumbers)
 const coldNumbers = computed(() => superLottoStore.coldNumbers)
 const totalDraws = computed(() => superLottoStore.totalDraws)

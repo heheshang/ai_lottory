@@ -20,7 +20,7 @@ import type {
   SearchParams,
   PaginationParams
 } from '@/types/superLotto'
-import { createApiResponse } from '@/types/superLotto'
+import { createApiResponse, createApiError } from '@/types/superLotto'
 import { VALIDATION_RULES } from '@/constants/lottery'
 
 import { handleError, ErrorCode, createSafeAsyncFunction } from '@/utils/errorHandler'
@@ -45,13 +45,14 @@ const DEFAULT_CONFIG: ApiConfig = {
 }
 
 interface CacheEntry<T> {
-  data: ApiResponse<T>;
-  timestamp: number;
+  data: T
+  timestamp: number
+  expiry: number
 }
 
 class SuperLottoApi {
+  private cache: Map<string, CacheEntry<any>> = new Map()
   private config: ApiConfig
-  private cache: Map<string, CacheEntry> = new Map()
 
   constructor(config: Partial<ApiConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -106,7 +107,7 @@ class SuperLottoApi {
       const processingTime = Date.now() - startTime
       console.log(`✅ [API] Command ${command} completed in ${processingTime}ms`)
 
-      const response = createApiResponse(true, result, undefined, {
+      const response = createApiResponse(true, result as T, undefined, {
         request_id: requestId,
         processing_time_ms: processingTime,
         cache_hit: false
@@ -134,7 +135,7 @@ class SuperLottoApi {
         )
       }
 
-      return createApiResponse(false, undefined, errorInfo, {
+      return createApiResponse(false, null as T, errorInfo, {
         request_id: requestId,
         processing_time_ms: processingTime,
         cache_hit: false
@@ -174,7 +175,7 @@ class SuperLottoApi {
   // =============================================================================
 
   private getFromCache<T>(key: string): ApiResponse<T> | null {
-    const entry = this.cache.get(key) as CacheEntry<T>;
+    const entry = this.cache.get(key) as CacheEntry<ApiResponse<T>>;
     if (!entry) return null;
 
     const age = Date.now() - entry.timestamp
@@ -195,7 +196,8 @@ class SuperLottoApi {
   private setCache<T>(key: string, data: ApiResponse<T>): void {
     this.cache.set(key, {
       data,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      expiry: Date.now() + this.config.cacheTimeout
     })
   }
 
@@ -223,7 +225,7 @@ class SuperLottoApi {
   } = {}): Promise<ApiResponse<{ draws: SuperLottoDraw[]; total: number }>> {
     const cacheKey = `draws:${JSON.stringify(params)}`
 
-    return this.invokeCommand('get_super_lotto_draws', params, {
+    return this.invokeCommand('get_super_lotto_draws', params as Record<string, unknown>, {
       cacheKey,
       cache: true
     })
@@ -315,7 +317,7 @@ class SuperLottoApi {
   }>> {
     const cacheKey = `predictions:${JSON.stringify(params)}`
 
-    return this.invokeCommand('get_predictions', params, {
+    return this.invokeCommand('get_predictions', params as Record<string, unknown>, {
       cacheKey,
       cache: true
     })
@@ -364,7 +366,7 @@ class SuperLottoApi {
   } = {}): Promise<ApiResponse<UnifiedTableData>> {
     const cacheKey = `unified_table:${JSON.stringify(params)}`
 
-    return this.invokeCommand('get_unified_table_data', params, {
+    return this.invokeCommand('get_unified_table_data', params as Record<string, unknown>, {
       cacheKey,
       cache: true
     })
@@ -435,9 +437,9 @@ class SuperLottoApi {
   }>> {
     const errors: string[] = []
 
-    // Validate red numbers
-    if (redNumbers.length !== VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.count) {
-      errors.push(`前区号码数量必须为${VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.count}个`)
+    // Validate red numbers (5 numbers from 1-35)
+    if (redNumbers.length !== 5) {
+      errors.push('前区号码数量必须为5个')
     }
 
     if (new Set(redNumbers).size !== redNumbers.length) {
@@ -445,16 +447,14 @@ class SuperLottoApi {
     }
 
     for (const num of redNumbers) {
-      if (num < VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.range[0] ||
-          num > VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.range[1]) {
-        errors.push(`前区号码必须在${VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.range[0]}-${VALIDATION_RULES.SUPER_LOTTO.RED_NUMBERS.range[1]}范围内`)
+      if (num < 1 || num > 35) {
+        errors.push('前区号码必须在1-35范围内')
       }
     }
 
-    // Validate blue number
-    if (blueNumber < VALIDATION_RULES.SUPER_LOTTO.BLUE_NUMBER.range[0] ||
-        blueNumber > VALIDATION_RULES.SUPER_LOTTO.BLUE_NUMBER.range[1]) {
-      errors.push(`后区号码必须在${VALIDATION_RULES.SUPER_LOTTO.BLUE_NUMBER.range[0]}-${VALIDATION_RULES.SUPER_LOTTO.BLUE_NUMBER.range[1]}范围内`)
+    // Validate blue number (1 number from 1-12)
+    if (blueNumber < 1 || blueNumber > 12) {
+      errors.push('后区号码必须在1-12范围内')
     }
 
     return createApiResponse(true, {
@@ -618,7 +618,12 @@ export const getPredictionComparison = createSafeAsyncFunction(
 
 export const getUnifiedTableData = createSafeAsyncFunction(
   (limit: number = 100, offset: number = 0, includePredictions: boolean = true, algorithmIds?: AlgorithmId[]) =>
-    superLottoApi.getUnifiedTableData({ limit, offset, include_predictions: includePredictions, algorithm_ids: algorithmIds })
+    superLottoApi.getUnifiedTableData({ 
+      limit: limit as any, 
+      offset: offset as any, 
+      include_predictions: includePredictions, 
+      algorithm_ids: algorithmIds 
+    } as any)
 )
 
 export const exportTableData = createSafeAsyncFunction(
