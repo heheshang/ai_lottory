@@ -13,8 +13,7 @@ use crate::super_lotto::{
     },
 };
 use chrono::{DateTime, Utc};
-use rand::Rng;
-use sqlx::{query_builder::QueryBuilder, SqlitePool};
+use sqlx::SqlitePool;
 use std::result::Result;
 use tauri::State;
 
@@ -29,7 +28,6 @@ pub async fn get_super_lotto_draws(
     draw_number: Option<String>,
 ) -> Result<serde_json::Value, SuperLottoError> {
     use crate::super_lotto::models::SuperLottoDraw;
-    use chrono::Utc;
 
     // Log command start
     let start_time = std::time::Instant::now();
@@ -197,8 +195,8 @@ pub async fn import_super_lotto_draws(
     validate_only: Option<bool>,
 ) -> Result<serde_json::Value, SuperLottoError> {
     // Log command start
-    let start_time = std::time::Instant::now();
     let validate_only = validate_only.unwrap_or(false);
+    let start_time = std::time::Instant::now();
 
     println!("📥 [COMMAND] import_super_lotto_draws called with parameters:");
     println!("  - draws count: {}", draws.len());
@@ -339,9 +337,9 @@ pub async fn analyze_hot_numbers(
     // Analyze number frequencies
     let mut front_freq: HashMap<u32, (u32, f64, u32)> = HashMap::new();
     let mut back_freq: HashMap<u32, (u32, f64, u32)> = HashMap::new();
-    let mut front_last_seen: HashMap<u32, Option<DateTime<Utc>>> = HashMap::new();
-    let mut back_last_seen: HashMap<u32, Option<DateTime<Utc>>> = HashMap::new();
-    let mut front_frequency: HashMap<u32, u32> = HashMap::new();
+    let _front_last_seen: HashMap<u32, Option<DateTime<Utc>>> = HashMap::new();
+    let _back_last_seen: HashMap<u32, Option<DateTime<Utc>>> = HashMap::new();
+    let _front_frequency: HashMap<u32, u32> = HashMap::new();
 
     for (i, draw) in draws.iter().enumerate() {
         let days_ago = i;
@@ -699,9 +697,9 @@ pub async fn analyze_cold_numbers(
 #[tauri::command]
 pub async fn get_pattern_analysis(
     pool: State<'_, SqlitePool>,
-    pattern_type: Option<String>,
-    days: u32,
-    min_occurrences: Option<u32>,
+    _pattern_type: Option<String>,
+    _days: u32,
+    _min_occurrences: Option<u32>,
 ) -> Result<serde_json::Value, SuperLottoError> {
     // TODO: Implement pattern analysis
     Err(SuperLottoError::internal("Not implemented yet"))
@@ -1250,8 +1248,7 @@ async fn get_historical_data_for_analysis(
     analysis_period_days: u32,
 ) -> Result<Vec<SuperLottoDraw>, SuperLottoError> {
     use super::models::SuperLottoDraw;
-    use chrono::Utc;
-    use sqlx::Row;
+        use sqlx::Row;
 
     let end_date = chrono::Utc::now();
     let start_date = end_date - chrono::Duration::days(analysis_period_days as i64);
@@ -1306,8 +1303,8 @@ async fn generate_prediction_for_algorithm(
     algorithm_name: &str,
     historical_draws: &[SuperLottoDraw],
     analysis_period_days: u32,
-    include_reasoning: bool,
-    draw_number: u32,
+    _include_reasoning: bool,
+    _draw_number: u32,
 ) -> Result<PredictionResult, SuperLottoError> {
     use crate::super_lotto::analysis::prediction_engine::{
         calculate_confidence_score, get_algorithm,

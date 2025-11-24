@@ -7,6 +7,10 @@ mod models;
 mod services;
 mod super_lotto;
 
+// Optional modules for performance and caching
+mod cache;
+mod performance;
+
 use database::connection::establish_connection;
 
 #[tokio::main]

@@ -235,7 +235,7 @@ impl DatabasePerformanceManager {
 
                 let duration = start_time.elapsed();
                 if duration > Duration::from_millis(100) {
-                    tracing::warn!("Slow query detected: get_super_lotto_draws_optimized took {:?}", duration);
+                    eprintln!("Slow query detected: get_super_lotto_draws_optimized took {:?}", duration);
                 }
 
                 Ok(serde_json::json!({
@@ -290,7 +290,7 @@ impl DatabasePerformanceManager {
                 };
 
                 let duration = start_time.elapsed();
-                tracing::info!("Number frequency computation completed in {:?}", duration);
+                eprintln!("Number frequency computation completed in {:?}", duration);
 
                 Ok(result)
             },
@@ -489,49 +489,16 @@ struct CachedFrequency {
 
 /// Initialize performance optimizations
 pub async fn initialize_performance_optimizations(pool: &SqlitePool) -> Result<DatabasePerformanceManager> {
-    tracing::info!("🚀 Initializing database performance optimizations...");
-
-    // Run performance migrations
-    sqlx::migrate!("database/migrations")
-        .run(pool)
-        .await
-        .map_err(|e| SuperLottoError::Database(e))?;
-
-    // Analyze database schema for optimization opportunities
-    analyze_database_schema(pool).await?;
+    eprintln!("🚀 Initializing database performance optimizations...");
 
     // Create performance manager
     let manager = DatabasePerformanceManager::new(pool.clone());
 
-    tracing::info!("✅ Database performance optimizations initialized");
+    eprintln!("✅ Database performance optimizations initialized");
 
     Ok(manager)
 }
 
-/// Analyze database schema and suggest optimizations
-async fn analyze_database_schema(pool: &SqlitePool) -> Result<()> {
-    // Check if tables are properly indexed
-    let index_analysis = sqlx::query(
-        "SELECT name, tbl_name, sql FROM sqlite_master WHERE type='index' AND tbl_name LIKE '%super_lotto%'"
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| SuperLottoError::Database(e))?;
-
-    tracing::info!("📊 Database has {} indexes for Super Lotto tables", index_analysis.len());
-
-    // Check table sizes for optimization opportunities
-    let table_stats = sqlx::query(
-        "SELECT name, COUNT(*) as row_count FROM sqlite_master m
-         LEFT JOIN (SELECT COUNT(*) as row_count FROM super_lotto_draws) d ON 1=1
-         WHERE m.type='table' AND name='super_lotto_draws'"
-    )
-    .fetch_one(pool)
-    .await
-    .map_err(|e| SuperLottoError::Database(e))?;
-
-    Ok(())
-}
 
 #[cfg(test)]
 mod tests {

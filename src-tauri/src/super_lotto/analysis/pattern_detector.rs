@@ -19,8 +19,8 @@ impl PatternDetector {
 
     pub async fn detect_consecutive_patterns(
         &self,
-        draws: &[SuperLottoDraw],
-        period_days: u32,
+        _draws: &[SuperLottoDraw],
+        _period_days: u32,
     ) -> Result<PatternAnalysis> {
         // TODO: Implement consecutive pattern detection
         Err(SuperLottoError::internal(
@@ -30,8 +30,8 @@ impl PatternDetector {
 
     pub async fn analyze_odd_even_distribution(
         &self,
-        draws: &[SuperLottoDraw],
-        period_days: u32,
+        _draws: &[SuperLottoDraw],
+        _period_days: u32,
     ) -> Result<PatternAnalysis> {
         // TODO: Implement odd/even distribution analysis
         Err(SuperLottoError::internal(
@@ -41,8 +41,8 @@ impl PatternDetector {
 
     pub async fn analyze_sum_ranges(
         &self,
-        draws: &[SuperLottoDraw],
-        period_days: u32,
+        _draws: &[SuperLottoDraw],
+        _period_days: u32,
     ) -> Result<PatternAnalysis> {
         // TODO: Implement sum range analysis
         Err(SuperLottoError::internal(

@@ -219,7 +219,7 @@ impl AuthService {
             .verify_password(login.password.as_bytes(), &parsed_hash)
             .is_err()
         {
-            self.record_failed_attempt(&login.username, None).await;
+            let _ = self.record_failed_attempt(&login.username, None).await;
             println!("❌ [AUTH] Login failed - invalid password for: {}", login.username);
             return Err(SuperLottoError::authentication("Invalid username or password"));
         }
@@ -415,7 +415,7 @@ impl AuthService {
         }
 
         // Check for common weak passwords
-        let common_passwords = vec![
+        let common_passwords = [
             "password", "123456", "12345678", "qwerty", "abc123", "password123",
             "admin", "letmein", "welcome", "monkey", "1234567890", "password1"
         ];
@@ -435,7 +435,7 @@ impl AuthService {
         Ok(None) // No rate limiting for now
     }
 
-    async fn record_failed_attempt(&self, username: &str, ip_address: Option<String>) -> Result<(), SuperLottoError> {
+    async fn record_failed_attempt(&self, username: &str, _ip_address: Option<String>) -> Result<(), SuperLottoError> {
         // This would typically insert into a login_attempts table
         println!("⚠️ [AUTH] Failed login attempt recorded for: {}", username);
         Ok(())

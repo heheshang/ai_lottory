@@ -19,9 +19,9 @@ impl PredictionEngine {
 
     pub async fn generate_prediction(
         &self,
-        draws: &[SuperLottoDraw],
-        algorithm: PredictionAlgorithm,
-        analysis_period_days: u32,
+        _draws: &[SuperLottoDraw],
+        _algorithm: PredictionAlgorithm,
+        _analysis_period_days: u32,
     ) -> Result<PredictionResult> {
         // TODO: Implement prediction generation
         Err(SuperLottoError::internal(
@@ -31,8 +31,8 @@ impl PredictionEngine {
 
     pub async fn generate_weighted_frequency_prediction(
         &self,
-        draws: &[SuperLottoDraw],
-        period_days: u32,
+        _draws: &[SuperLottoDraw],
+        _period_days: u32,
     ) -> Result<PredictionResult> {
         // TODO: Implement weighted frequency prediction
         Err(SuperLottoError::internal(
@@ -42,9 +42,9 @@ impl PredictionEngine {
 
     pub async fn generate_ensemble_prediction(
         &self,
-        draws: &[SuperLottoDraw],
-        period_days: u32,
-        algorithms: Vec<PredictionAlgorithm>,
+        _draws: &[SuperLottoDraw],
+        _period_days: u32,
+        _algorithms: Vec<PredictionAlgorithm>,
     ) -> Result<PredictionResult> {
         // TODO: Implement ensemble prediction
         Err(SuperLottoError::internal(

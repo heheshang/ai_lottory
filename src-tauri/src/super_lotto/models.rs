@@ -101,7 +101,7 @@ impl NumberVec {
         self.0.contains(item)
     }
 
-    pub fn iter(&self) -> std::slice::Iter<u32> {
+    pub fn iter(&self) -> std::slice::Iter<'_, u32> {
         self.0.iter()
     }
 
@@ -117,7 +117,7 @@ impl NumberVec {
         self.0.dedup();
     }
 
-    pub fn windows(&self, size: usize) -> std::slice::Windows<u32> {
+    pub fn windows(&self, size: usize) -> std::slice::Windows<'_, u32> {
         self.0.windows(size)
     }
 }
@@ -254,7 +254,7 @@ impl SuperLottoDraw {
         jackpot_amount: Option<f64>,
         winners_count: Option<u32>,
     ) -> Result<Self, ValidationError> {
-        let mut draw = SuperLottoDraw {
+        let draw = SuperLottoDraw {
             id: 0, // Will be set by database
             draw_date,
             draw_number,

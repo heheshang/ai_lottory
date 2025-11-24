@@ -19,9 +19,9 @@ impl FrequencyAnalyzer {
 
     pub async fn analyze_frequency(
         &self,
-        draws: &[SuperLottoDraw],
-        days: u32,
-        zone: NumberZone,
+        _draws: &[SuperLottoDraw],
+        _days: u32,
+        _zone: NumberZone,
     ) -> Result<Vec<NumberFrequency>> {
         // TODO: Implement frequency analysis
         Err(SuperLottoError::internal(
@@ -31,8 +31,8 @@ impl FrequencyAnalyzer {
 
     pub async fn calculate_hot_scores(
         &self,
-        frequencies: &mut [NumberFrequency],
-        total_draws: u32,
+        _frequencies: &mut [NumberFrequency],
+        _total_draws: u32,
     ) -> Result<()> {
         // TODO: Implement hot score calculation
         Err(SuperLottoError::internal(

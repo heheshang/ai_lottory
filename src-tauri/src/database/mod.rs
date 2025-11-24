@@ -84,7 +84,7 @@ impl DatabaseConfig {
             .max_lifetime(self.max_lifetime);
 
         // Enable WAL mode for better performance and concurrency
-        pool_options = pool_options.after_connect(|mut conn, _meta| {
+        pool_options = pool_options.after_connect(|conn, _meta| {
             Box::pin(async move {
                 // Enable WAL mode
                 sqlx::query("PRAGMA journal_mode=WAL")

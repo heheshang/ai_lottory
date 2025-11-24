@@ -256,15 +256,13 @@ impl ApiPerformanceManager {
         let mut cache = self.request_cache.write().await;
 
         if let Some(pattern) = pattern {
-            let regex = regex::Regex::new(pattern)
-                .map_err(|e| SuperLottoError::internal(format!("Invalid regex pattern: {}", e)))?;
-
-            cache.retain(|key, _| !regex.is_match(key));
+            // Simple string matching instead of regex
+            cache.retain(|key, _| !key.contains(pattern));
         } else {
             cache.clear();
         }
 
-        tracing::info!("✅ API cache cleared");
+        eprintln!("✅ API cache cleared");
         Ok(())
     }
 

@@ -14,5 +14,4 @@ pub mod analysis;
 pub mod commands;
 
 // Re-export main types for easier access
-pub use errors::SuperLottoError;
 pub use errors::SuperLottoResult as Result;

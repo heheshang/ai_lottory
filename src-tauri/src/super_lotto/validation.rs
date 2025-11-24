@@ -221,7 +221,7 @@ impl SuperLottoValidation {
     }
 
     /// Check for unusual patterns in numbers
-    fn check_unusual_patterns(front_zone: &[u32], back_zone: &[u32]) -> Vec<String> {
+    fn check_unusual_patterns(front_zone: &[u32], _back_zone: &[u32]) -> Vec<String> {
         let mut warnings = Vec::new();
 
         // Check for consecutive numbers in front zone
