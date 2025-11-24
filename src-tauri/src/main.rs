@@ -40,19 +40,9 @@ async fn main() {
             commands::analysis::get_cold_numbers,
             commands::analysis::get_number_statistics,
             // Super Lotto commands
-            super_lotto::commands::get_super_lotto_draws,
-            super_lotto::commands::import_super_lotto_draws,
-            super_lotto::commands::analyze_hot_numbers,
-            super_lotto::commands::analyze_cold_numbers,
-            super_lotto::commands::get_pattern_analysis,
-            super_lotto::commands::generate_prediction,
             super_lotto::commands::get_predictions,
-            super_lotto::commands::validate_prediction,
-            // One-Click Prediction Feature
             super_lotto::commands::generate_all_predictions,
             super_lotto::commands::get_prediction_comparison,
-            super_lotto::commands::get_unified_table_data,
-            super_lotto::commands::export_table_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

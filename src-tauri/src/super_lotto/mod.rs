@@ -8,6 +8,7 @@ pub mod models;
 pub mod services;
 pub mod utils;
 pub mod validation;
+pub mod predictions;
 
 // Placeholder modules to be implemented
 pub mod analysis;
