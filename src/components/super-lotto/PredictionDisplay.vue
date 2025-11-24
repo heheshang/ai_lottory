@@ -109,8 +109,8 @@
                 @click="$emit('select-alternative', alt)"
               >
                 <div class="alternative-numbers">
-                  <span class="alt-front">{{ alt.front_zone.join('-') }}</span>
-                  <span class="alt-back">{{ alt.back_zone.join('-') }}</span>
+                  <span class="alt-front">{{ alt.front_numbers.join('-') }}</span>
+                  <span class="alt-back">{{ alt.back_numbers.join('-') }}</span>
                 </div>
                 <span class="alt-confidence">{{ (alt.confidence_score * 100).toFixed(1) }}%</span>
               </div>
@@ -163,20 +163,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-
-// Define types locally to avoid circular dependencies
-interface PredictionResult {
-  id: number
-  algorithm: string
-  front_numbers: number[]
-  back_numbers: number[]
-  confidence_score: number
-  reasoning: any
-  analysis_period_days: number
-  sample_size: number
-  created_at: string
-  is_validated: boolean
-}
+import type { PredictionResult } from '@/types/superLotto'
 
 interface Props {
   prediction: PredictionResult
