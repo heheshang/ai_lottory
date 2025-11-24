@@ -192,7 +192,7 @@
         <div v-show="showComparisonDetails" class="comparison-content">
           <h4>算法对比分析</h4>
           <div class="comparison-table">
-            <el-table :data="comparisonData" style="width: 100%">
+        <el-table :data="comparisonData" :style="{ width: '100%' }">
               <el-table-column prop="algorithm" label="算法" width="120" />
               <el-table-column prop="confidence" label="置信度" width="100">
                 <template #default="{ row }">
@@ -225,14 +225,14 @@
           </el-icon>
         </el-button>
 
-        <div v-show="showConsensus" class="consensus-content">
+        <div v-show="showConsensus && consensusNumbers" class="consensus-content">
           <h4>算法共识分析</h4>
           <div class="consensus-numbers">
             <div class="consensus-group">
               <h5>前区共识号码：</h5>
               <div class="consensus-front">
                 <span
-                  v-for="(num, index) in consensusNumbers.front"
+                  v-for="(num, index) in consensusNumbers?.front || []"
                   :key="`consensus-front-${index}`"
                   class="consensus-number"
                 >
@@ -245,7 +245,7 @@
               <h5>后区共识号码：</h5>
               <div class="consensus-back">
                 <span
-                  v-for="(num, index) in consensusNumbers.back"
+                  v-for="(num, index) in consensusNumbers?.back || []"
                   :key="`consensus-back-${index}`"
                   class="consensus-number"
                 >
@@ -257,10 +257,10 @@
           </div>
 
           <div class="consensus-strength">
-            <p>共识强度：{{ (consensusNumbers.strength * 100).toFixed(1) }}%</p>
+            <p>共识强度：{{ (consensusNumbers?.strength * 100 || 0).toFixed(1) }}%</p>
             <el-progress
-              :percentage="consensusNumbers.strength * 100"
-              :color="getConsensusColor(consensusNumbers.strength)"
+              :percentage="consensusNumbers?.strength * 100 || 0"
+              :color="getConsensusColor(consensusNumbers?.strength || 0)"
               :show-text="false"
             />
           </div>
@@ -288,7 +288,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, ElButton, ElSelect, ElOption, ElCheckbox, ElTag, ElProgress, ElTable, ElTableColumn, ElDialog, ElIcon, ElAlert } from 'element-plus'
 import PredictionDisplay from './PredictionDisplay.vue'
 import { generateAllPredictions as apiGenerateAllPredictions, getPredictionComparison } from '@/api/superLotto'
 
@@ -374,7 +374,7 @@ const config = ref<PredictionConfig>({
   ...props.initialConfig
 })
 
-const selectedAlgorithms = ref([...config.value.algorithms])
+const selectedAlgorithms = ref<string[]>([...config.value.algorithms])
 
 // Available algorithms
 const availableAlgorithms: PredictionAlgorithm[] = [
@@ -550,7 +550,7 @@ const getAlgorithmDisplay = (algorithm: string): string => {
   return displayMap[algorithm] || algorithm
 }
 
-const getConfidenceType = (confidence: number): string => {
+const getConfidenceType = (confidence: number): 'success' | 'warning' | 'danger' => {
   if (confidence >= 0.8) return 'success'
   if (confidence >= 0.6) return 'warning'
   return 'danger'

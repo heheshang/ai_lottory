@@ -389,8 +389,45 @@ const switchTab = (tabType: string) => {
 }
 
 const getPatternData = (type: string) => {
-  // Since PatternAnalysis objects don't have pattern_type, we return the patterns array
-  // The chart components will need to work with the actual PatternAnalysis structure
+  if (patterns.value.length === 0) return []
+  
+  // Transform pattern data based on type to match component expectations
+  if (type === 'sum_range') {
+    // Transform to SumRange[] format for SumRangeAnalysisChart
+    return patterns.value.map(pattern => ({
+      label: `${pattern.sum_range[0]}-${pattern.sum_range[1]}`,
+      min: pattern.sum_range[0],
+      max: pattern.sum_range[1],
+      count: 1, // Each pattern represents one draw
+      percentage: 0.1 // Mock percentage
+    }))
+  } else if (type === 'consecutive') {
+    // Transform to ConsecutivePattern[] format for ConsecutivePatternsChart
+    return patterns.value.map(pattern => ({
+      length: pattern.consecutive_pairs.length,
+      count: 1,
+      percentage: 0.1
+    }))
+  } else if (type === 'gap') {
+    // Transform to GapData[] format for GapPatternsChart
+    return patterns.value.map(pattern => ({
+      gap: pattern.gap_patterns.reduce((sum, gap) => sum + gap, 0) / pattern.gap_patterns.length,
+      count: 1,
+      percentage: 0.1
+    }))
+  } else if (type === 'odd_even') {
+    // Transform to RatioData[] format for OddEvenDistributionChart
+    return patterns.value.map(pattern => ({
+      ratio: `${pattern.odd_even_ratio}:1`,
+      count: 1,
+      percentage: 0.1
+    }))
+  } else if (type === 'position') {
+    // For position, return patterns as is (or transform as needed)
+    return patterns.value
+  }
+  
+  // Default case
   return patterns.value
 }
 
