@@ -286,7 +286,15 @@ export class ErrorHandler {
       originalError = error
     }
 
-    const config = ERROR_CONFIGS[errorCode]
+    const config = ERROR_CONFIGS[errorCode] || {
+      category: ErrorCategory.SYSTEM,
+      severity: 'medium' as ErrorSeverity,
+      recoverable: true,
+      userMessage: originalError instanceof Error ? originalError.message : String(originalError),
+      technicalMessage: originalError instanceof Error ? originalError.message : String(originalError),
+      suggestions: ['请稍后重试', '如果问题持续，请联系技术支持'],
+      notificationLevel: 'toast' as NotificationLevel
+    }
 
     return {
       code: errorCode,
@@ -399,7 +407,10 @@ export class ErrorHandler {
 
   private triggerErrorCallbacks(error: ErrorInfo): void {
     const config = ERROR_CONFIGS[error.code as ErrorCode]
-    if (!config) return
+    if (!config) {
+      console.warn(`No error config found for code: ${error.code}`)
+      return
+    }
 
     const callbacks = this.errorCallbacks.get(config.category)
     if (callbacks) {
@@ -416,7 +427,12 @@ export class ErrorHandler {
   // User notifications
   private showErrorNotification(error: ErrorInfo): void {
     const config = ERROR_CONFIGS[error.code as ErrorCode]
-    if (!config) return
+    if (!config) {
+      // Use default notification for unknown errors
+      console.warn(`No error config found for code: ${error.code}, using default notification`)
+      this.showNotification(error.message, 'toast', [])
+      return
+    }
 
     // Import notification system dynamically to avoid circular dependencies
     this.showNotification(error.message, config.notificationLevel, error.suggestions)
@@ -454,6 +470,7 @@ export class ErrorHandler {
   ): Promise<T> {
     const config = ERROR_CONFIGS[errorCode]
     if (!config?.retryStrategy) {
+      console.warn(`No retry strategy for error code: ${errorCode}`)
       throw this.handleError(errorCode, context)
     }
 
@@ -493,11 +510,12 @@ export class ErrorHandler {
           config.category,
           (categoryCounts.get(config.category) || 0) + 1
         )
-        severityCounts.set(
-          error.severity,
-          (severityCounts.get(error.severity) || 0) + 1
-        )
       }
+      // Always count severity, even if config is missing
+      severityCounts.set(
+        error.severity,
+        (severityCounts.get(error.severity) || 0) + 1
+      )
     })
 
     return {

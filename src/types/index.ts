@@ -49,7 +49,7 @@ export interface LotterySearchQuery {
 export interface NumberFrequency {
   number: number
   frequency: number
-  last_drawn?: string
+  last_seen?: string
   hot_score: number
   cold_score: number
   zone?: string

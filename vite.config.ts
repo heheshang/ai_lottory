@@ -8,8 +8,7 @@ export default defineConfig({
     vue({
       template: {
         compilerOptions: {
-          // Performance optimizations
-          isCustomElement: (tag) => tag.includes('-'),
+          // Performance optimizations - don't interfere with Element Plus
           whitespace: 'condense',
         },
       },
@@ -24,25 +23,42 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     target: 'es2020',
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
-      },
-      mangle: {
-        safari10: true,
-      },
-    },
+    minify: 'esbuild',
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Vendor chunks for better caching
-          vendor: ['vue', 'vue-router', 'pinia'],
-          element: ['element-plus', '@element-plus/icons-vue'],
-          charts: ['echarts', 'vue-echarts'],
-          utils: ['axios']
+        manualChunks: (id) => {
+          // Vue ecosystem
+          if (id.includes('vue') || id.includes('vue-router') || id.includes('pinia')) {
+            return 'vue-vendor'
+          }
+
+          // Element Plus UI
+          if (id.includes('element-plus') || id.includes('@element-plus/')) {
+            return 'element-ui'
+          }
+
+          // Charts and visualization
+          if (id.includes('echarts')) {
+            return 'charts'
+          }
+
+          // API and HTTP
+          if (id.includes('axios')) {
+            return 'api'
+          }
+
+          // Tauri APIs
+          if (id.includes('@tauri-apps/')) {
+            return 'tauri'
+          }
+
+          // Super Lotto specific code
+          if (id.includes('super-lotto') || id.includes('superLotto')) {
+            return 'super-lotto'
+          }
+
+          // Default
+          return 'vendor'
         },
         // Optimize chunk size
         chunkFileNames: (chunkInfo) => {

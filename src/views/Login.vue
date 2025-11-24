@@ -19,11 +19,7 @@
                 v-model="loginForm.username"
                 placeholder="Username"
                 size="large"
-              >
-                <template #prefix>
-                  <el-icon><User /></el-icon>
-                </template>
-              </el-input>
+              />
             </el-form-item>
             <el-form-item prop="password">
               <el-input
@@ -33,11 +29,7 @@
                 size="large"
                 show-password
                 @keyup.enter="handleLogin"
-              >
-                <template #prefix>
-                  <el-icon><Lock /></el-icon>
-                </template>
-              </el-input>
+              />
             </el-form-item>
             <el-form-item>
               <el-button
@@ -65,22 +57,14 @@
                 v-model="registerForm.username"
                 placeholder="Username"
                 size="large"
-              >
-                <template #prefix>
-                  <el-icon><User /></el-icon>
-                </template>
-              </el-input>
+              />
             </el-form-item>
             <el-form-item prop="email">
               <el-input
                 v-model="registerForm.email"
                 placeholder="Email (optional)"
                 size="large"
-              >
-                <template #prefix>
-                  <el-icon><Message /></el-icon>
-                </template>
-              </el-input>
+              />
             </el-form-item>
             <el-form-item prop="password">
               <el-input
@@ -89,11 +73,7 @@
                 placeholder="Password"
                 size="large"
                 show-password
-              >
-                <template #prefix>
-                  <el-icon><Lock /></el-icon>
-                </template>
-              </el-input>
+              />
             </el-form-item>
             <el-form-item prop="confirmPassword">
               <el-input
@@ -103,11 +83,7 @@
                 size="large"
                 show-password
                 @keyup.enter="handleRegister"
-              >
-                <template #prefix>
-                  <el-icon><Lock /></el-icon>
-                </template>
-              </el-input>
+              />
             </el-form-item>
             <el-form-item>
               <el-button
@@ -132,7 +108,6 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormRules, FormInstance } from 'element-plus'
-import { User, Lock, Message } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import type { UserLogin, UserRegistration } from '@/types'
 

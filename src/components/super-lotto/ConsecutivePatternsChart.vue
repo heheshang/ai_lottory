@@ -182,12 +182,12 @@ const mockExamples: PatternExample[] = [
 ]
 
 // Computed properties
-const patterns = computed(() => props.patternes?.length > 0 ? props.patternes : mockPatterns)
+const patterns = computed(() => props.patterns?.length > 0 ? props.patterns : mockPatterns)
 
 const totalDraws = computed(() => props.totalDraws || 295)
 
 const consecutiveCount = computed(() => {
-  return patterns.value.reduce((sum, pattern) => sum + pattern.count, 0)
+  return patterns.value.reduce((sum: number, pattern: ConsecutivePattern) => sum + pattern.count, 0)
 })
 
 const consecutiveRate = computed(() => {
@@ -195,16 +195,16 @@ const consecutiveRate = computed(() => {
 })
 
 const lengthDistribution = computed(() => {
-  return patterns.value.filter(p => p.length >= 2).sort((a, b) => a.length - b.length)
+  return patterns.value.filter((p: ConsecutivePattern) => p.length >= 2).sort((a: ConsecutivePattern, b: ConsecutivePattern) => a.length - b.length)
 })
 
 const mostCommonLength = computed(() => {
-  const sorted = [...patterns.value].sort((a, b) => b.count - a.count)
+  const sorted = [...patterns.value].sort((a: ConsecutivePattern, b: ConsecutivePattern) => b.count - a.count)
   return sorted[0]?.length || 0
 })
 
 const maxLength = computed(() => {
-  return Math.max(...patterns.value.map(p => p.length), 0)
+  return Math.max(...patterns.value.map((p: ConsecutivePattern) => p.length), 0)
 })
 
 const patternExamples = computed(() => mockExamples)
@@ -239,12 +239,12 @@ const nextDrawProbability = computed(() => {
 
 // Methods
 const getLengthFrequency = (length: number): number => {
-  const pattern = patterns.value.find(p => p.length === length)
+  const pattern = patterns.value.find((p: ConsecutivePattern) => p.length === length)
   return pattern?.count || 0
 }
 
 const getBarWidth = (count: number): number => {
-  const maxCount = Math.max(...patterns.value.map(p => p.count), 1)
+  const maxCount = Math.max(...patterns.value.map((p: ConsecutivePattern) => p.count), 1)
   return (count / maxCount) * 100
 }
 

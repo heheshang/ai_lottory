@@ -1,6 +1,13 @@
 <template>
   <div class="prediction-dashboard">
     <div class="page-header">
+      <button
+        class="btn btn-secondary back-button"
+        type="button"
+        @click="goBack"
+      >
+        ← Back Dashboard
+      </button>
       <h1>预测仪表板</h1>
       <p class="page-description">基于统计分析生成大乐透号码预测</p>
     </div>
@@ -8,7 +15,7 @@
     <div class="controls-section">
       <div class="prediction-controls">
         <AlgorithmSelector
-          v-model="selectedAlgorithm as any"
+          v-model="selectedAlgorithm"
           @algorithm-change="handleAlgorithmChange"
         />
         <div class="period-selector">
@@ -149,6 +156,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import PredictionDisplay from '@/components/super-lotto/PredictionDisplay.vue'
 import AlgorithmSelector from '@/components/super-lotto/AlgorithmSelector.vue'
 import BaseCard from '@/components/common/BaseCard.vue'
@@ -179,6 +187,16 @@ const {
 } = usePrediction({ autoLoad: true, defaultPeriod: 90 })
 
 const { getAlgorithmName } = useAlgorithm()
+
+const router = useRouter()
+
+const goBack = () => {
+  if (typeof window !== 'undefined' && window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/dashboard')
+  }
+}
 
 // Local state
 const showDetails = ref(false)
@@ -249,8 +267,16 @@ const getAlgorithmParameters = (algorithm: string) => {
 }
 
 .page-header {
+  position: relative;
   text-align: center;
   margin-bottom: 30px;
+  padding-top: 10px;
+}
+
+.back-button {
+  position: absolute;
+  left: 0;
+  top: 0;
 }
 
 .page-header h1 {

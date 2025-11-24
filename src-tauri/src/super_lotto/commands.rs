@@ -956,8 +956,8 @@ pub async fn generate_all_predictions(
     for algorithm in &batch_request.algorithms {
         let algorithm_str = algorithm.to_string();
         println!(
-            "🎯 [PREDICTION] Generating prediction using: {:?}",
-            algorithm
+            "🎯 [PREDICTION] Generating prediction using: {:?} (as string: {})",
+            algorithm, algorithm_str
         );
 
         match generate_prediction_for_algorithm(

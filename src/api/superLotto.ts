@@ -1,7 +1,7 @@
 // Enhanced Super Lotto API Client
 // Provides type-safe API calls with comprehensive error handling and caching
 
-import { invoke } from '@tauri-apps/api/tauri'
+import { invoke } from '@tauri-apps/api/core'
 import type {
   SuperLottoDraw,
   PredictionResult,
@@ -18,10 +18,10 @@ import type {
   ApiResponse,
   ErrorInfo,
   SearchParams,
-  PaginationParams,
-  createApiResponse,
-  VALIDATION_RULES
+  PaginationParams
 } from '@/types/superLotto'
+import { createApiResponse } from '@/types/superLotto'
+import { VALIDATION_RULES } from '@/constants/lottery'
 
 import { handleError, ErrorCode, createSafeAsyncFunction } from '@/utils/errorHandler'
 

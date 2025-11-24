@@ -58,7 +58,9 @@
       "Bash(cargo machete:*)",
       "Bash(cargo build:*)",
       "Bash(cargo fmt:*)",
-      "Bash(export:*)"
+      "Bash(export:*)",
+      "Bash(sed:*)",
+      "Bash(npm test:*)"
     ],
     "deny": [],
     "ask": []

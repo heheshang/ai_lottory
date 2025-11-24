@@ -230,3 +230,119 @@ export interface AnalysisFilters {
   minDraws: number
   algorithms: AlgorithmId[]
 }
+
+// =============================================================================
+// Shared Utility Types
+// =============================================================================
+
+export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical'
+
+export interface ErrorDetails {
+  technicalMessage?: string
+  originalError?: string
+  stack?: string
+  context?: Record<string, unknown>
+  userAgent?: string
+  timestamp?: string
+  url?: string
+  [key: string]: unknown
+}
+
+export interface ErrorInfo {
+  code: string
+  message: string
+  details?: ErrorDetails
+  timestamp: string
+  request_id?: string
+  severity: ErrorSeverity
+  recoverable: boolean
+  suggestions?: string[]
+}
+
+export interface ApiMetadata {
+  request_id?: string
+  processing_time_ms?: number
+  cache_hit?: boolean
+  [key: string]: unknown
+}
+
+export interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: ErrorInfo
+  metadata?: ApiMetadata
+}
+
+export const createApiResponse = <T>(
+  success: boolean,
+  data?: T,
+  error?: ErrorInfo,
+  metadata: ApiMetadata = {}
+): ApiResponse<T> => ({
+  success,
+  data,
+  error,
+  metadata
+})
+
+export const createErrorResponse = (
+  error: ErrorInfo,
+  metadata: ApiMetadata = {}
+): ApiResponse<null> => ({
+  success: false,
+  error,
+  metadata
+})
+
+export interface LoadingState {
+  loading: boolean
+  loading_text?: string
+  progress?: number
+  cancellable: boolean
+}
+
+export interface ErrorState {
+  has_error: boolean
+  error_message?: string
+  error_code?: string
+  retry_count: number
+  can_retry: boolean
+}
+
+export interface SelectionState<T> {
+  selected_items: T[]
+  selected_ids: string[]
+  last_selected?: T
+  selection_mode: 'single' | 'multiple'
+}
+
+export interface FilterDefinition {
+  id?: string
+  name?: string
+  date_range?: {
+    start_date: string
+    end_date: string
+  }
+  algorithm_ids?: AlgorithmId[]
+  [key: string]: unknown
+}
+
+export interface FilterState {
+  active_filters: FilterDefinition[]
+  saved_filters: FilterDefinition[]
+  current_preset?: string
+}
+
+export interface SearchParams {
+  query?: string
+  start_date?: string
+  end_date?: string
+  filters?: Record<string, unknown>
+}
+
+export interface PaginationParams {
+  page?: number
+  limit?: number
+  sort_by?: string
+  sort_direction?: 'asc' | 'desc'
+}

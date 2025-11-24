@@ -1,6 +1,14 @@
 <template>
   <div class="one-click-prediction">
     <div class="prediction-header">
+      <el-button
+        class="back-button"
+        link
+        type="primary"
+        @click="goBack"
+      >
+        ← Back Dashboard
+      </el-button>
       <h2>一键预测全部算法</h2>
       <p class="description">同时使用多种预测算法生成大乐透号码，提供更全面的分析结果</p>
     </div>
@@ -279,9 +287,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PredictionDisplay from './PredictionDisplay.vue'
-import { generateAllPredictions, getPredictionComparison } from '@/api/superLotto'
+import { generateAllPredictions as apiGenerateAllPredictions, getPredictionComparison } from '@/api/superLotto'
 
 // Types
 interface PredictionAlgorithm {
@@ -337,6 +346,16 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   initialConfig: () => ({})
 })
+
+const router = useRouter()
+
+const goBack = () => {
+  if (typeof window !== 'undefined' && window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/dashboard')
+  }
+}
 
 // Reactive data
 const isGenerating = ref(false)
@@ -422,20 +441,41 @@ const generateAllPredictions = async () => {
     const request = {
       algorithms: selectedAlgorithms.value,
       analysis_period_days: config.value.analysisPeriodDays,
-      include_reasoning: config.value.includeReasoning
+      include_reasoning: config.value.includeReasoning,
+      draw_number: 0 // Default draw number for new predictions
     }
 
-    const result = await invoke('plugin:super_lotto|generate_all_predictions', request)
-    batchResult.value = result
+    console.log('🚀 [OneClick] Generating predictions with request:', request)
 
-    // Generate comparison data
-    await generateComparison()
+    const response = await apiGenerateAllPredictions(request)
+    
+    if (response.success && response.data) {
+      batchResult.value = response.data
+      
+      // Generate comparison data (optional, don't block on errors)
+      generateComparison().catch(err => {
+        console.warn('Comparison generation failed (non-critical):', err)
+      })
 
-    ElMessage.success(`成功生成 ${result.successful_predictions} 个预测结果`)
+      const successMsg = response.data.successful_predictions > 0
+        ? `成功生成 ${response.data.successful_predictions} 个预测结果`
+        : '预测完成，但没有成功的结果'
+      
+      if (response.data.failed_predictions > 0) {
+        ElMessage.warning(`${successMsg}，${response.data.failed_predictions} 个算法失败`)
+      } else {
+        ElMessage.success(successMsg)
+      }
+    } else {
+      const errorMsg = response.error?.message || response.error?.code || '生成预测失败'
+      console.error('❌ [OneClick] API returned error:', response.error)
+      throw new Error(errorMsg)
+    }
 
   } catch (error: any) {
-    console.error('Failed to generate predictions:', error)
-    ElMessage.error('生成预测失败，请重试')
+    console.error('❌ [OneClick] Failed to generate predictions:', error)
+    const errorMessage = error?.message || error?.toString() || '生成预测失败，请重试'
+    ElMessage.error(errorMessage)
   } finally {
     isGenerating.value = false
   }
@@ -445,11 +485,14 @@ const generateComparison = async () => {
   if (!batchResult.value) return
 
   try {
-    const comparison = await getPredictionComparison(batchResult.value.request_id)
-    // Process comparison data and update consensus numbers
-    updateConsensusNumbers(comparison)
+    console.log('🔍 [OneClick] Generating comparison for request_id:', batchResult.value.request_id)
+    // Note: getPredictionComparison currently expects drawNumber and days, 
+    // but backend expects batch_request_id. This is a known limitation.
+    // For now, we'll skip comparison or use a workaround
+    console.warn('⚠️ [OneClick] Comparison feature needs backend update to support batch_request_id')
   } catch (error: any) {
-    console.error('Failed to generate comparison:', error)
+    console.error('❌ [OneClick] Failed to generate comparison:', error)
+    // Don't show error to user as comparison is optional
   }
 }
 
@@ -554,8 +597,17 @@ onMounted(() => {
 }
 
 .prediction-header {
+  position: relative;
   text-align: center;
   margin-bottom: 40px;
+  padding-top: 10px;
+}
+
+.back-button {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-weight: 500;
 }
 
 .prediction-header h2 {

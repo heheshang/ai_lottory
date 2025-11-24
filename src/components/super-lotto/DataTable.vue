@@ -27,7 +27,7 @@
             <td>{{ draw.draw_number || '-' }}</td>
             <td class="front-zone">
               <span
-                v-for="number in draw.front_zone"
+                v-for="number in draw.front_numbers"
                 :key="number"
                 class="number front"
               >
@@ -36,25 +36,25 @@
             </td>
             <td class="back-zone">
               <span
-                v-for="number in draw.back_zone"
+                v-for="number in draw.back_numbers"
                 :key="number"
                 class="number back"
               >
                 {{ number }}
               </span>
             </td>
-            <td>{{ draw.get_sum_front() }}</td>
-            <td>{{ draw.get_odd_count_front() }}/{{ draw.get_even_count_front() }}</td>
+            <td>{{ getSumFront(draw) }}</td>
+            <td>{{ getOddCountFront(draw) }}/{{ getEvenCountFront(draw) }}</td>
             <td>
               <span
                 :class="['consecutive-indicator', {
-                  'has-consecutive': draw.get_has_consecutive_front()
+                  'has-consecutive': hasConsecutiveFront(draw)
                 }]"
               >
-                {{ draw.get_has_consecutive_front() ? '是' : '否' }}
+                {{ hasConsecutiveFront(draw) ? '是' : '否' }}
               </span>
             </td>
-            <td>{{ formatCurrency(draw.jackpot_amount) }}</td>
+            <td>{{ formatCurrency(draw.prize_pool) }}</td>
             <td>
               <button
                 @click.stop="$emit('show-details', draw)"
@@ -98,6 +98,28 @@ const emit = defineEmits<{
 
 // State
 const selectedDraw = ref<SuperLottoDraw | null>(null)
+
+// Helper functions to compute draw statistics
+const getSumFront = (draw: SuperLottoDraw): number => {
+  return draw.front_numbers?.reduce((sum, num) => sum + num, 0) || 0
+}
+
+const getOddCountFront = (draw: SuperLottoDraw): number => {
+  return draw.front_numbers?.filter(num => num % 2 === 1).length || 0
+}
+
+const getEvenCountFront = (draw: SuperLottoDraw): number => {
+  return draw.front_numbers?.filter(num => num % 2 === 0).length || 0
+}
+
+const hasConsecutiveFront = (draw: SuperLottoDraw): boolean => {
+  if (!draw.front_numbers || draw.front_numbers.length < 2) return false
+  const sorted = [...draw.front_numbers].sort((a, b) => a - b)
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (sorted[i + 1] === sorted[i] + 1) return true
+  }
+  return false
+}
 
 // Methods
 const selectDraw = (draw: SuperLottoDraw) => {

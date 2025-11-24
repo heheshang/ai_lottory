@@ -541,30 +541,65 @@ impl PatternAnalysis {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(try_from = "String", into = "String")]
 pub enum PredictionAlgorithm {
     WeightedFrequency,
     HotNumbers,
     ColdNumbers,
     PatternBased,
     Ensemble,
+    MarkovChain,
+    PositionAnalysis,
 }
 
 impl FromStr for PredictionAlgorithm {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "weighted_frequency" | "weighted-frequency" | "weightedfrequency" => {
+        match s.to_uppercase().as_str() {
+            "WEIGHTED_FREQUENCY" | "WEIGHTED-FREQUENCY" | "WEIGHTEDFREQUENCY" | "WEIGHTED_FREQUENCY" => {
                 Ok(PredictionAlgorithm::WeightedFrequency)
             }
-            "hot_numbers" | "hot-numbers" | "hotnumbers" => Ok(PredictionAlgorithm::HotNumbers),
-            "cold_numbers" | "cold-numbers" | "coldnumbers" => Ok(PredictionAlgorithm::ColdNumbers),
-            "pattern_based" | "pattern-based" | "patternbased" => {
+            "HOT_NUMBERS" | "HOT-NUMBERS" | "HOTNUMBERS" => Ok(PredictionAlgorithm::HotNumbers),
+            "COLD_NUMBERS" | "COLD-NUMBERS" | "COLDNUMBERS" => Ok(PredictionAlgorithm::ColdNumbers),
+            "PATTERN_BASED" | "PATTERN-BASED" | "PATTERNBASED" => {
                 Ok(PredictionAlgorithm::PatternBased)
             }
-            "ensemble" => Ok(PredictionAlgorithm::Ensemble),
-            _ => Err(format!("Unknown prediction algorithm: {}", s)),
+            "ENSEMBLE" => Ok(PredictionAlgorithm::Ensemble),
+            "MARKOV_CHAIN" | "MARKOV-CHAIN" | "MARKOVCHAIN" => Ok(PredictionAlgorithm::MarkovChain),
+            "POSITION_ANALYSIS" | "POSITION-ANALYSIS" | "POSITIONANALYSIS" => Ok(PredictionAlgorithm::PositionAnalysis),
+            _ => {
+                // Try lowercase as fallback
+                match s.to_lowercase().as_str() {
+                    "weighted_frequency" | "weighted-frequency" | "weightedfrequency" => {
+                        Ok(PredictionAlgorithm::WeightedFrequency)
+                    }
+                    "hot_numbers" | "hot-numbers" | "hotnumbers" => Ok(PredictionAlgorithm::HotNumbers),
+                    "cold_numbers" | "cold-numbers" | "coldnumbers" => Ok(PredictionAlgorithm::ColdNumbers),
+                    "pattern_based" | "pattern-based" | "patternbased" => {
+                        Ok(PredictionAlgorithm::PatternBased)
+                    }
+                    "ensemble" => Ok(PredictionAlgorithm::Ensemble),
+                    "markov_chain" | "markov-chain" | "markovchain" => Ok(PredictionAlgorithm::MarkovChain),
+                    "position_analysis" | "position-analysis" | "positionanalysis" => Ok(PredictionAlgorithm::PositionAnalysis),
+                    _ => Err(format!("Unknown prediction algorithm: {}", s)),
+                }
+            }
         }
+    }
+}
+
+impl TryFrom<String> for PredictionAlgorithm {
+    type Error = String;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        Self::from_str(&s)
+    }
+}
+
+impl From<PredictionAlgorithm> for String {
+    fn from(algo: PredictionAlgorithm) -> Self {
+        algo.to_string()
     }
 }
 
@@ -576,6 +611,8 @@ impl std::fmt::Display for PredictionAlgorithm {
             PredictionAlgorithm::ColdNumbers => write!(f, "COLD_NUMBERS"),
             PredictionAlgorithm::PatternBased => write!(f, "PATTERN_BASED"),
             PredictionAlgorithm::Ensemble => write!(f, "ENSEMBLE"),
+            PredictionAlgorithm::MarkovChain => write!(f, "MARKOV_CHAIN"),
+            PredictionAlgorithm::PositionAnalysis => write!(f, "POSITION_ANALYSIS"),
         }
     }
 }
