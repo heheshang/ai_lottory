@@ -7,24 +7,42 @@ mod models;
 mod services;
 mod super_lotto;
 
-// Optional modules for performance and caching
+// Performance and optimization modules
 mod cache;
+mod error;
 mod performance;
+
+// Dependency injection and repository modules
+mod di;
+mod plugins;
+mod repository;
 
 use database::connection::establish_connection;
 
 #[tokio::main]
 async fn main() {
-    println!("🟢 [Tauri] Starting Tauri application...");
+    // Initialize logging for performance debugging
+    let log_level = if cfg!(debug_assertions) {
+        tracing::Level::DEBUG
+    } else {
+        tracing::Level::INFO
+    };
+
+    tracing_subscriber::fmt()
+        .with_max_level(log_level)
+        .with_target(false)
+        .init();
+
+    tracing::info!("🟢 [Tauri] Starting Tauri application...");
 
     // Initialize database connection
-    println!("🔵 [Tauri] Establishing database connection...");
+    tracing::info!("🔵 [Tauri] Establishing database connection...");
     let pool = establish_connection()
         .await
         .expect("Failed to establish database connection");
-    println!("🔵 [Tauri] Database connection established successfully");
+    tracing::info!("🔵 [Tauri] Database connection established successfully");
 
-    println!("🔵 [Tauri] Building Tauri application...");
+    tracing::info!("🔵 [Tauri] Building Tauri application...");
 
     tauri::Builder::default()
         .manage(pool)

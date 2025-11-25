@@ -23,11 +23,24 @@ argon2 = "0.5"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 rand = "0.8"
 futures = "0.3"
+pin-project = "1.1"
+tokio-stream = "0.1"
+async-stream = "0.3"
 
 # Super Lotto specific dependencies
 polars = { version = "0.39", features = ["lazy", "temporal", "strings"] }
 nalgebra = "0.33"
 statrs = "0.16"
+
+# Caching dependencies
+cached = "0.46"
+async-trait = "0.1"
+
+# Performance monitoring dependencies
+metrics = "0.21"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tokio-metrics = "0.1"
 
 [features]
 # by default Tauri runs in production mode

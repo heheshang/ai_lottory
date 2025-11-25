@@ -6,8 +6,10 @@
 pub mod connection;
 pub mod migrations;
 pub mod health;
+pub mod query_optimizer;
 
 pub use health::HealthChecker;
+pub use query_optimizer::QueryOptimizer;
 
 use sqlx::{SqlitePool, migrate::MigrateDatabase, Sqlite, Row};
 use anyhow::Result;

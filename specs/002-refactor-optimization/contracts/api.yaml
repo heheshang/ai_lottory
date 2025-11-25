@@ -1,0 +1,345 @@
+openapi: 3.0.3
+info:
+  title: AI Lottery Prediction API - Refactored
+  description: Enhanced API for lottery prediction with caching and optimization
+  version: 2.0.0
+servers:
+  - url: 'http://localhost:3000'
+    description: Development server
+
+paths:
+  # Cache Management APIs
+  /cache/analysis:
+    get:
+      summary: Get cached analysis result
+      parameters:
+        - name: algorithm
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: data_hash
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cached result found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResult'
+        '404':
+          description: Cache miss
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Store analysis result in cache
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                algorithm:
+                  type: string
+                parameters:
+                  type: object
+                data_hash:
+                  type: string
+                result:
+                  $ref: '#/components/schemas/AnalysisResult'
+                ttl_seconds:
+                  type: number
+                  default: 86400
+      responses:
+        '201':
+          description: Cached successfully
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cache/clear:
+    delete:
+      summary: Clear expired or all cache entries
+      parameters:
+        - name: all
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Cache cleared successfully
+
+  # Performance Monitoring APIs
+  /metrics/performance:
+    get:
+      summary: Get performance metrics
+      parameters:
+        - name: operation_type
+          in: query
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Performance metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PerformanceMetric'
+
+  # Error Reporting APIs
+  /errors:
+    post:
+      summary: Report an error
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorReport'
+      responses:
+        '201':
+          description: Error logged successfully
+    get:
+      summary: Get error logs (admin only)
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high]
+        - name: limit
+          in: query
+          schema:
+            type: number
+            default: 100
+      responses:
+        '200':
+          description: Error logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ErrorLog'
+
+  # Algorithm Registry APIs
+  /algorithms:
+    get:
+      summary: Get available prediction algorithms
+      responses:
+        '200':
+          description: List of algorithms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlgorithmInfo'
+    post:
+      summary: Register new algorithm (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlgorithmRegistration'
+      responses:
+        '201':
+          description: Algorithm registered
+        '409':
+          description: Algorithm already exists
+
+  # Enhanced Analysis APIs
+  /analysis/predict:
+    post:
+      summary: Generate lottery prediction with caching
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                algorithm:
+                  type: string
+                parameters:
+                  type: object
+                use_cache:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Prediction generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResponse'
+        '400':
+          description: Invalid request
+        '500':
+          description: Analysis failed
+
+components:
+  schemas:
+    AnalysisResult:
+      type: object
+      properties:
+        front_numbers:
+          type: array
+          items:
+            type: integer
+        back_numbers:
+          type: array
+          items:
+            type: integer
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        reasoning:
+          type: string
+        metadata:
+          type: object
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+    ErrorReport:
+      type: object
+      required:
+        - error_code
+        - message
+      properties:
+        error_code:
+          type: string
+        message:
+          type: string
+        context:
+          type: object
+        user_impact:
+          type: string
+          enum: [low, medium, high]
+
+    ErrorLog:
+      type: object
+      properties:
+        id:
+          type: string
+        error_code:
+          type: string
+        message:
+          type: string
+        user_impact:
+          type: string
+        resolution_hint:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    PerformanceMetric:
+      type: object
+      properties:
+        operation_type:
+          type: string
+        duration_ms:
+          type: number
+        memory_usage_mb:
+          type: number
+        cpu_usage_percent:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    AlgorithmInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+        description:
+          type: string
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlgorithmParameter'
+        confidence_base:
+          type: number
+        enabled:
+          type: boolean
+
+    AlgorithmParameter:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        default_value:
+          anyOf:
+            - type: number
+            - type: string
+            - type: boolean
+        description:
+          type: string
+
+    AlgorithmRegistration:
+      allOf:
+        - $ref: '#/components/schemas/AlgorithmInfo'
+        - type: object
+          required:
+            - name
+            - version
+            - description
+
+    PredictionResponse:
+      type: object
+      properties:
+        prediction:
+          $ref: '#/components/schemas/AnalysisResult'
+        cached:
+          type: boolean
+        execution_time_ms:
+          type: number
+        cache_hit:
+          type: boolean
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
