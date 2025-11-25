@@ -43,6 +43,9 @@ async fn main() {
             super_lotto::commands::get_predictions,
             super_lotto::commands::generate_all_predictions,
             super_lotto::commands::get_prediction_comparison,
+            super_lotto::commands::save_prediction_result,
+            super_lotto::commands::get_saved_predictions,
+            super_lotto::commands::delete_prediction,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

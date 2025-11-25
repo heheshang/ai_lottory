@@ -463,6 +463,57 @@ class SuperLottoApi {
     })
   }
 
+  // =============================================================================
+  // Prediction Save/Load Operations
+  // =============================================================================
+
+  async savePrediction(prediction: {
+    algorithm: string
+    front_numbers: number[]
+    back_numbers: number[]
+    confidence_score: number
+    reasoning?: string
+    analysis_period_days?: number
+    sample_size?: number
+  }): Promise<ApiResponse<{ prediction_id: number }>> {
+    // Clear prediction cache when saving new prediction
+    this.clearCache('predictions:')
+
+    return this.invokeCommand('save_prediction_result', prediction, {
+      cache: false // Don't cache save operations
+    })
+  }
+
+  async getSavedPredictions(params: {
+    algorithm?: string
+    limit?: number
+    offset?: number
+  } = {}): Promise<ApiResponse<{
+    predictions: any[]
+    pagination: {
+      total: number
+      limit: number
+      offset: number
+      has_more: boolean
+    }
+  }>> {
+    const cacheKey = `saved_predictions:${JSON.stringify(params)}`
+
+    return this.invokeCommand('get_saved_predictions', params, {
+      cacheKey,
+      cache: true
+    })
+  }
+
+  async deletePrediction(predictionId: number): Promise<ApiResponse<{ prediction_id: number }>> {
+    // Clear prediction cache when deleting
+    this.clearCache('predictions:')
+
+    return this.invokeCommand('delete_prediction', { prediction_id: predictionId }, {
+      cache: false // Don't cache delete operations
+    })
+  }
+
   // Health check
   async healthCheck(): Promise<ApiResponse<{ status: string; timestamp: string }>> {
     return this.invokeCommand('health_check', {}, {
@@ -599,7 +650,12 @@ export function useSuperLottoApi() {
     exportData: (request: ExportRequest) => executeRequest(() => superLottoApi.exportData(request)),
     validateSuperLottoNumbers: (redNumbers: number[], blueNumber: number) =>
       executeRequest(() => superLottoApi.validateSuperLottoNumbers(redNumbers, blueNumber)),
-    healthCheck: () => executeRequest(() => superLottoApi.healthCheck())
+    healthCheck: () => executeRequest(() => superLottoApi.healthCheck()),
+
+    // Prediction save/load operations
+    savePrediction: (prediction: any) => executeRequest(() => superLottoApi.savePrediction(prediction)),
+    getSavedPredictions: (params?: any) => executeRequest(() => superLottoApi.getSavedPredictions(params)),
+    deletePrediction: (predictionId: number) => executeRequest(() => superLottoApi.deletePrediction(predictionId))
   }
 }
 

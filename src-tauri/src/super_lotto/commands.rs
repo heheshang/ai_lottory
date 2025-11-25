@@ -8,7 +8,7 @@ use crate::super_lotto::models::{
 };
 use crate::super_lotto::predictions::*;
 use serde_json::json;
-use sqlx::SqlitePool;
+use sqlx::{SqlitePool, Row};
 use std::result::Result;
 use tauri::State;
 
@@ -67,12 +67,6 @@ pub async fn get_predictions(
             },
             PredictionAlgorithm::PatternBased => {
                 predictions.push(generate_pattern_based_prediction(&historical_draws)?);
-            },
-            PredictionAlgorithm::Ensemble => {
-                // Generate multiple predictions and combine them
-                predictions.push(generate_weighted_frequency_prediction(&historical_draws)?);
-                predictions.push(generate_hot_numbers_prediction(&historical_draws)?);
-                predictions.push(generate_cold_numbers_prediction(&historical_draws)?);
             },
             PredictionAlgorithm::MarkovChain => {
                 predictions.push(generate_markov_chain_prediction(&historical_draws)?);
@@ -226,17 +220,50 @@ async fn get_historical_data_for_analysis(
 #[tauri::command]
 pub async fn generate_all_predictions(
     pool: State<'_, SqlitePool>,
-    include_reasoning: Option<bool>,
-    draw_number: Option<String>,
+    request: serde_json::Value,
 ) -> Result<serde_json::Value, SuperLottoError> {
+    // Parse request parameters
+    let include_reasoning = request.get("include_reasoning")
+        .and_then(|v| v.as_bool())
+        .unwrap_or_default();
+
+    let draw_number = request.get("draw_number")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let algorithms = request.get("algorithms")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str())
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        })
+        .unwrap_or_else(|| {
+            vec![
+                "WEIGHTED_FREQUENCY".to_string(),
+                "HOT_NUMBERS".to_string(),
+                "COLD_NUMBERS".to_string(),
+                "PATTERN_BASED".to_string(),
+                "MARKOV_CHAIN".to_string(),
+                "POSITION_ANALYSIS".to_string(),
+                "ENSEMBLE".to_string(),
+            ]
+        });
+
+    let analysis_period_days = request.get("analysis_period_days")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(90) as u32;
     let start_time = std::time::Instant::now();
 
     println!("🚀 [COMMAND] generate_all_predictions called - One-click prediction feature");
     println!("  - include_reasoning: {:?}", include_reasoning);
     println!("  - draw_number: {:?}", draw_number);
+    println!("  - algorithms: {:?}", algorithms);
+    println!("  - analysis_period_days: {:?}", analysis_period_days);
 
     // Get historical data for analysis
-    let historical_draws = get_historical_data_for_analysis(pool.inner(), 365).await?;
+    let historical_draws = get_historical_data_for_analysis(pool.inner(), analysis_period_days).await?;
 
     if historical_draws.is_empty() {
         return Err(SuperLottoError::internal("No historical data available for prediction"));
@@ -244,28 +271,22 @@ pub async fn generate_all_predictions(
 
     println!("📊 [ANALYSIS] Analyzing {} historical draws for comprehensive prediction", historical_draws.len());
 
-    // Generate predictions using all available algorithms
+    // Generate predictions using requested algorithms
     let mut all_predictions = Vec::new();
-    let algorithms = vec![
-        PredictionAlgorithm::WeightedFrequency,
-        PredictionAlgorithm::HotNumbers,
-        PredictionAlgorithm::ColdNumbers,
-        PredictionAlgorithm::PatternBased,
-        PredictionAlgorithm::MarkovChain,
-        PredictionAlgorithm::PositionAnalysis,
-    ];
 
-    let algorithm_names = vec![
-        "WEIGHTED_FREQUENCY",
-        "HOT_NUMBERS",
-        "COLD_NUMBERS",
-        "PATTERN_BASED",
-        "MARKOV_CHAIN",
-        "POSITION_ANALYSIS",
-    ];
+    for algorithm_name in algorithms.iter() {
+        let algorithm_enum = match algorithm_name.as_str() {
+            "WEIGHTED_FREQUENCY" => PredictionAlgorithm::WeightedFrequency,
+            "HOT_NUMBERS" => PredictionAlgorithm::HotNumbers,
+            "COLD_NUMBERS" => PredictionAlgorithm::ColdNumbers,
+            "PATTERN_BASED" => PredictionAlgorithm::PatternBased,
+            "MARKOV_CHAIN" => PredictionAlgorithm::MarkovChain,
+            "POSITION_ANALYSIS" => PredictionAlgorithm::PositionAnalysis,
+            "ENSEMBLE" => PredictionAlgorithm::Ensemble,
+            _ => continue, // Skip unknown algorithms
+        };
 
-    for (i, algorithm) in algorithms.iter().enumerate() {
-        let prediction = match algorithm {
+        let prediction = match algorithm_enum {
             PredictionAlgorithm::WeightedFrequency => {
                 generate_weighted_frequency_prediction(&historical_draws)?
             },
@@ -296,21 +317,21 @@ pub async fn generate_all_predictions(
     // Sort predictions by confidence score
     all_predictions.sort_by(|a, b| b.confidence_score.partial_cmp(&a.confidence_score).unwrap_or(std::cmp::Ordering::Equal));
 
-    // Select top 3 predictions with highest confidence
-    let top_predictions: Vec<&PredictionResult> = all_predictions.iter().take(3).collect();
+    // Return all predictions (not just top 3)
+    let all_prediction_results: Vec<&PredictionResult> = all_predictions.iter().collect();
 
     // Format results
-    let results: Vec<serde_json::Value> = top_predictions.iter().enumerate().map(|(i, p)| {
-        let reasoning_data = if include_reasoning.unwrap_or(false) {
+    let results: Vec<serde_json::Value> = all_prediction_results.iter().enumerate().map(|(i, p)| {
+        let reasoning_data = if include_reasoning {
             serde_json::from_str::<serde_json::Value>(&p.reasoning).unwrap_or(json!({}))
         } else {
             json!(null)
         };
 
         json!({
-            "rank": i + 1,
+            "id": i + 1,
             "algorithm": p.algorithm,
-            "algorithm_name": algorithm_names.iter().find(|&name| p.algorithm.contains(name)).unwrap_or(&p.algorithm.as_str()),
+            "algorithm_name": get_algorithm_display_name(&p.algorithm),
             "front_numbers": p.front_numbers,
             "back_numbers": p.back_numbers,
             "confidence_score": p.confidence_score,
@@ -319,27 +340,29 @@ pub async fn generate_all_predictions(
             "analysis_period_days": p.analysis_period_days,
             "sample_size": p.sample_size,
             "created_at": p.created_at.to_rfc3339(),
+            "is_validated": p.is_validated,
             "recommended": i == 0, // First prediction is most recommended
         })
     }).collect();
 
     // Generate comparison analysis
-    let comparison_analysis = generate_prediction_comparison(&top_predictions, &historical_draws);
+    let comparison_analysis = generate_prediction_comparison(&all_prediction_results, &historical_draws);
 
     // Calculate ensemble recommendation
-    let ensemble_recommendation = calculate_ensemble_recommendation(&top_predictions);
+    let ensemble_recommendation = calculate_ensemble_recommendation(&all_prediction_results);
 
     let response = json!({
         "success": true,
         "message": "One-click prediction completed successfully",
         "total_predictions_generated": all_predictions.len(),
-        "top_recommendations": 3,
+        "returned_predictions": all_prediction_results.len(),
         "predictions": results,
         "ensemble_recommendation": ensemble_recommendation,
         "comparison_analysis": comparison_analysis,
         "metadata": {
             "historical_draws_analyzed": historical_draws.len(),
-            "algorithms_used": algorithm_names,
+            "algorithms_used": algorithms,
+            "analysis_period_days": analysis_period_days,
             "analysis_completed_at": chrono::Utc::now().to_rfc3339(),
             "draw_number": draw_number,
             "processing_time_ms": start_time.elapsed().as_millis(),
@@ -349,6 +372,340 @@ pub async fn generate_all_predictions(
 
     let duration = start_time.elapsed();
     println!("✅ [COMMAND] generate_all_predictions completed in {:?} - generated {} predictions", duration, all_predictions.len());
+
+    Ok(response)
+}
+
+/// Save a prediction result to the database
+#[tauri::command]
+pub async fn save_prediction_result(
+    pool: State<'_, SqlitePool>,
+    prediction: serde_json::Value,
+) -> Result<serde_json::Value, SuperLottoError> {
+    let start_time = std::time::Instant::now();
+
+    println!("💾 [COMMAND] save_prediction_result called");
+
+    // Extract prediction data from JSON
+    let algorithm = prediction.get("algorithm")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| SuperLottoError::invalid_input("algorithm", "Algorithm is required"))?;
+
+    let front_numbers = prediction.get("front_numbers")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| SuperLottoError::invalid_input("front_numbers", "Front numbers array is required"))?;
+
+    let back_numbers = prediction.get("back_numbers")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| SuperLottoError::invalid_input("back_numbers", "Back numbers array is required"))?;
+
+    let confidence_score = prediction.get("confidence_score")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.5);
+
+    let reasoning = prediction.get("reasoning")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    let analysis_period_days = prediction.get("analysis_period_days")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(90) as u32;
+
+    let sample_size = prediction.get("sample_size")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(100) as u32;
+
+    // Validate front numbers
+    if front_numbers.len() != 5 {
+        return Err(SuperLottoError::invalid_input("front_numbers", "Must have exactly 5 front numbers"));
+    }
+
+    for num in front_numbers.iter() {
+        if let Some(n) = num.as_u64() {
+            if n < 1 || n > 35 {
+                return Err(SuperLottoError::invalid_input("front_numbers", "Front numbers must be between 1-35"));
+            }
+        } else {
+            return Err(SuperLottoError::invalid_input("front_numbers", "Invalid number format"));
+        }
+    }
+
+    // Validate back numbers
+    if back_numbers.len() != 2 {
+        return Err(SuperLottoError::invalid_input("back_numbers", "Must have exactly 2 back numbers"));
+    }
+
+    for num in back_numbers.iter() {
+        if let Some(n) = num.as_u64() {
+            if n < 1 || n > 12 {
+                return Err(SuperLottoError::invalid_input("back_numbers", "Back numbers must be between 1-12"));
+            }
+        } else {
+            return Err(SuperLottoError::invalid_input("back_numbers", "Invalid number format"));
+        }
+    }
+
+    // Validate algorithm
+    let valid_algorithms = [
+        "WEIGHTED_FREQUENCY", "PATTERN_BASED", "MARKOV_CHAIN",
+        "ENSEMBLE", "HOT_NUMBERS", "COLD_NUMBERS", "POSITION_ANALYSIS"
+    ];
+
+    if !valid_algorithms.contains(&algorithm) {
+        return Err(SuperLottoError::invalid_input("algorithm", "Invalid algorithm type"));
+    }
+
+    // Validate confidence score
+    if confidence_score < 0.0 || confidence_score > 1.0 {
+        return Err(SuperLottoError::invalid_input("confidence_score", "Confidence score must be between 0.0 and 1.0"));
+    }
+
+    // Insert prediction into database
+    let query = r#"
+        INSERT INTO prediction_results (
+            algorithm, front_numbers, back_numbers, confidence_score,
+            reasoning, analysis_period_days, sample_size, created_at, is_validated
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    "#;
+
+    let front_numbers_json = serde_json::to_string(front_numbers)
+        .map_err(|e| SuperLottoError::internal(format!("Failed to serialize front numbers: {}", e)))?;
+
+    let back_numbers_json = serde_json::to_string(back_numbers)
+        .map_err(|e| SuperLottoError::internal(format!("Failed to serialize back numbers: {}", e)))?;
+
+    let reasoning_json = if reasoning.is_empty() {
+        serde_json::json!({})
+    } else {
+        serde_json::from_str(reasoning)
+            .unwrap_or_else(|_| serde_json::json!({"text": reasoning}))
+    };
+
+    let reasoning_json_str = serde_json::to_string(&reasoning_json)
+        .map_err(|e| SuperLottoError::internal(format!("Failed to serialize reasoning: {}", e)))?;
+
+    let now = chrono::Utc::now();
+
+    sqlx::query(query)
+        .bind(algorithm)
+        .bind(front_numbers_json)
+        .bind(back_numbers_json)
+        .bind(confidence_score)
+        .bind(reasoning_json_str)
+        .bind(analysis_period_days)
+        .bind(sample_size)
+        .bind(now)
+        .bind(false)
+        .execute(pool.inner())
+        .await
+        .map_err(|e| SuperLottoError::internal(format!("Failed to save prediction: {}", e)))?;
+
+    let prediction_id = sqlx::query_scalar::<_, i64>("SELECT last_insert_rowid()")
+        .fetch_one(pool.inner())
+        .await
+        .map_err(|e| SuperLottoError::internal(format!("Failed to get prediction ID: {}", e)))?;
+
+    let duration = start_time.elapsed();
+    println!("✅ [COMMAND] save_prediction_result completed in {:?} - saved prediction ID: {}", duration, prediction_id);
+
+    let response = json!({
+        "success": true,
+        "message": "Prediction saved successfully",
+        "prediction_id": prediction_id,
+        "metadata": {
+            "saved_at": now.to_rfc3339(),
+            "processing_time_ms": duration.as_millis(),
+            "algorithm": algorithm,
+            "confidence_score": confidence_score
+        }
+    });
+
+    Ok(response)
+}
+
+/// Get saved prediction results
+#[tauri::command]
+pub async fn get_saved_predictions(
+    pool: State<'_, SqlitePool>,
+    algorithm: Option<String>,
+    limit: Option<u32>,
+    offset: Option<u32>,
+) -> Result<serde_json::Value, SuperLottoError> {
+    let start_time = std::time::Instant::now();
+
+    println!("📋 [COMMAND] get_saved_predictions called");
+
+    let limit_val = limit.unwrap_or(50);
+    let offset_val = offset.unwrap_or(0);
+
+    // Build query with optional algorithm filter
+    let mut query = "SELECT id, algorithm, front_numbers, back_numbers, confidence_score, reasoning, analysis_period_days, sample_size, created_at, is_validated FROM prediction_results".to_string();
+
+    let mut where_clauses = Vec::new();
+    if algorithm.is_some() {
+        where_clauses.push("algorithm = ?");
+    }
+
+    if !where_clauses.is_empty() {
+        query.push_str(" WHERE ");
+        query.push_str(&where_clauses.join(" AND "));
+    }
+
+    query.push_str(" ORDER BY created_at DESC LIMIT ? OFFSET ?");
+
+    let mut query_builder = sqlx::query(&query);
+
+    if let Some(ref algo) = algorithm {
+        query_builder = query_builder.bind(algo);
+    }
+
+    query_builder = query_builder.bind(limit_val).bind(offset_val);
+
+    let rows = query_builder
+        .fetch_all(pool.inner())
+        .await
+        .map_err(|e| SuperLottoError::internal(format!("Failed to fetch predictions: {}", e)))?;
+
+    let mut predictions = Vec::new();
+
+    for row in rows {
+        let id: i64 = row.try_get("id")
+            .map_err(|e| SuperLottoError::internal(format!("Failed to get prediction ID: {}", e)))?;
+
+        let algorithm_str: String = row.try_get("algorithm")
+            .map_err(|e| SuperLottoError::internal(format!("Failed to get algorithm: {}", e)))?;
+
+        let front_numbers_json: String = row.try_get("front_numbers")
+            .map_err(|e| SuperLottoError::internal(format!("Failed to get front numbers: {}", e)))?;
+
+        let back_numbers_json: String = row.try_get("back_numbers")
+            .map_err(|e| SuperLottoError::internal(format!("Failed to get back numbers: {}", e)))?;
+
+        let confidence: f64 = row.try_get("confidence_score")
+            .map_err(|e| SuperLottoError::internal(format!("Failed to get confidence: {}", e)))?;
+
+        let reasoning_json: String = row.try_get("reasoning")
+            .map_err(|e| SuperLottoError::internal(format!("Failed to get reasoning: {}", e)))?;
+
+        let analysis_period_days: u32 = row.try_get("analysis_period_days")
+            .map_err(|e| SuperLottoError::internal(format!("Failed to get analysis period: {}", e)))?;
+
+        let sample_size: u32 = row.try_get("sample_size")
+            .map_err(|e| SuperLottoError::internal(format!("Failed to get sample size: {}", e)))?;
+
+        let created_at: chrono::DateTime<chrono::Utc> = row.try_get("created_at")
+            .map_err(|e| SuperLottoError::internal(format!("Failed to get created date: {}", e)))?;
+
+        let is_validated: bool = row.try_get("is_validated")
+            .map_err(|e| SuperLottoError::internal(format!("Failed to get validation status: {}", e)))?;
+
+        let front_numbers: serde_json::Value = serde_json::from_str(&front_numbers_json)
+            .unwrap_or_else(|_| serde_json::json!([]));
+
+        let back_numbers: serde_json::Value = serde_json::from_str(&back_numbers_json)
+            .unwrap_or_else(|_| serde_json::json!([]));
+
+        let reasoning: serde_json::Value = serde_json::from_str(&reasoning_json)
+            .unwrap_or_else(|_| serde_json::json!({}));
+
+        predictions.push(json!({
+            "id": id,
+            "algorithm": algorithm_str,
+            "front_numbers": front_numbers,
+            "back_numbers": back_numbers,
+            "confidence_score": confidence,
+            "reasoning": reasoning,
+            "analysis_period_days": analysis_period_days,
+            "sample_size": sample_size,
+            "created_at": created_at.to_rfc3339(),
+            "is_validated": is_validated
+        }));
+    }
+
+    // Get total count for pagination
+    let count_query = if algorithm.is_some() {
+        "SELECT COUNT(*) FROM prediction_results WHERE algorithm = ?"
+    } else {
+        "SELECT COUNT(*) FROM prediction_results"
+    };
+
+    let mut count_builder = sqlx::query_scalar::<_, i64>(count_query);
+
+    if let Some(ref algo) = algorithm {
+        count_builder = count_builder.bind(algo);
+    }
+
+    let total_count = count_builder
+        .fetch_one(pool.inner())
+        .await
+        .map_err(|e| SuperLottoError::internal(format!("Failed to count predictions: {}", e)))?;
+
+    let duration = start_time.elapsed();
+    println!("✅ [COMMAND] get_saved_predictions completed in {:?} - returned {} predictions", duration, predictions.len());
+
+    let response = json!({
+        "success": true,
+        "predictions": predictions,
+        "pagination": {
+            "total": total_count,
+            "limit": limit_val,
+            "offset": offset_val,
+            "has_more": (offset_val + limit_val) < total_count as u32
+        },
+        "metadata": {
+            "retrieved_at": chrono::Utc::now().to_rfc3339(),
+            "processing_time_ms": duration.as_millis()
+        }
+    });
+
+    Ok(response)
+}
+
+/// Delete a saved prediction
+#[tauri::command]
+pub async fn delete_prediction(
+    pool: State<'_, SqlitePool>,
+    prediction_id: i64,
+) -> Result<serde_json::Value, SuperLottoError> {
+    let start_time = std::time::Instant::now();
+
+    println!("🗑️ [COMMAND] delete_prediction called for ID: {}", prediction_id);
+
+    // Check if prediction exists
+    let exists = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM prediction_results WHERE id = ?")
+        .bind(prediction_id)
+        .fetch_one(pool.inner())
+        .await
+        .map_err(|e| SuperLottoError::internal(format!("Failed to check prediction existence: {}", e)))?;
+
+    if exists == 0 {
+        return Err(SuperLottoError::not_found("Prediction", prediction_id.to_string()));
+    }
+
+    // Delete the prediction
+    let rows_affected = sqlx::query("DELETE FROM prediction_results WHERE id = ?")
+        .bind(prediction_id)
+        .execute(pool.inner())
+        .await
+        .map_err(|e| SuperLottoError::internal(format!("Failed to delete prediction: {}", e)))?
+        .rows_affected();
+
+    if rows_affected == 0 {
+        return Err(SuperLottoError::internal("No rows were affected during deletion"));
+    }
+
+    let duration = start_time.elapsed();
+    println!("✅ [COMMAND] delete_prediction completed in {:?} - deleted prediction ID: {}", duration, prediction_id);
+
+    let response = json!({
+        "success": true,
+        "message": "Prediction deleted successfully",
+        "prediction_id": prediction_id,
+        "metadata": {
+            "deleted_at": chrono::Utc::now().to_rfc3339(),
+            "processing_time_ms": duration.as_millis()
+        }
+    });
 
     Ok(response)
 }
@@ -750,9 +1107,22 @@ fn generate_ensemble_prediction(historical_draws: &[SuperLottoDraw]) -> Result<P
     let cold_pred = generate_cold_numbers_prediction(historical_draws)?;
 
     // Simple ensemble: take average confidence and most common numbers
-    let ensemble_confidence = (weighted_pred.confidence_score + hot_pred.confidence_score + cold_pred.confidence_score) / 3.0;
+    let _ensemble_confidence = (weighted_pred.confidence_score + hot_pred.confidence_score + cold_pred.confidence_score) / 3.0;
 
     // For simplicity, use the weighted frequency prediction as the base
     Ok(weighted_pred)
+}
+
+fn get_algorithm_display_name(algorithm: &str) -> String {
+    match algorithm {
+        "WeightedFrequency" => "加权频率".to_string(),
+        "HotNumbers" => "热号预测".to_string(),
+        "ColdNumbers" => "冷号预测".to_string(),
+        "PatternBased" => "模式分析".to_string(),
+        "MarkovChain" => "马尔可夫链".to_string(),
+        "PositionAnalysis" => "位置分析".to_string(),
+        "Ensemble" => "集成方法".to_string(),
+        _ => algorithm.to_string(),
+    }
 }
 

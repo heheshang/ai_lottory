@@ -88,13 +88,13 @@
         <h3>批量预测结果</h3>
         <div class="results-summary">
           <el-tag type="success" size="large">
-            成功: {{ batchResult.successful_predictions }}
+            生成: {{ batchResult.total_predictions_generated }} 个
           </el-tag>
-          <el-tag type="info" size="large" v-if="batchResult.failed_predictions > 0">
-            失败: {{ batchResult.failed_predictions }}
+          <el-tag type="info" size="large">
+            返回: {{ batchResult.returned_predictions }} 个
           </el-tag>
           <el-tag type="primary" size="large">
-            耗时: {{ batchResult.processing_time_ms }}ms
+            耗时: {{ batchResult.metadata.processing_time_ms }}ms
           </el-tag>
         </div>
       </div>
@@ -164,6 +164,14 @@
                 @click="selectPrediction(prediction)"
               >
                 选择
+              </el-button>
+              <el-button
+                size="small"
+                type="success"
+                :loading="isSaving"
+                @click="savePredictionResult(prediction)"
+              >
+                {{ isSaving ? '保存中...' : '保存' }}
               </el-button>
               <el-button
                 size="small"
@@ -268,6 +276,88 @@
       </div>
     </div>
 
+    <!-- Saved Predictions Section -->
+    <div v-if="batchResult" class="saved-predictions-section">
+      <div class="section-header">
+        <h3>保存的预测结果</h3>
+        <el-button
+          type="primary"
+          @click="toggleSavedPredictions"
+          :loading="isLoadingPredictions"
+        >
+          {{ showSavedPredictions ? '隐藏' : '显示' }}保存的预测
+          <el-icon class="toggle-icon">
+            <component :is="showSavedPredictions ? 'arrow-up' : 'arrow-down'" />
+          </el-icon>
+        </el-button>
+      </div>
+
+      <div v-show="showSavedPredictions" class="saved-predictions-content">
+        <div v-if="isLoadingPredictions" class="loading-state">
+          <el-icon class="is-loading">
+            <loading />
+          </el-icon>
+          <span>加载中...</span>
+        </div>
+
+        <div v-else-if="savedPredictions.length === 0" class="empty-state">
+          <p>暂无保存的预测结果</p>
+        </div>
+
+        <div v-else class="saved-predictions-grid">
+          <div
+            v-for="(saved, index) in savedPredictions"
+            :key="`saved-${index}`"
+            class="saved-prediction-card"
+          >
+            <div class="saved-prediction-header">
+              <span class="algorithm-name">{{ getAlgorithmDisplayName(saved.algorithm) }}</span>
+              <el-button
+                size="small"
+                type="danger"
+                link
+                @click="deleteSavedPrediction(saved.id)"
+              >
+                删除
+              </el-button>
+            </div>
+
+            <div class="saved-prediction-numbers">
+              <div class="number-row">
+                <span class="label">前区:</span>
+                <div class="numbers front">
+                  <span
+                    v-for="(num, idx) in saved.front_numbers"
+                    :key="`saved-front-${idx}`"
+                    class="number"
+                  >
+                    {{ num }}
+                  </span>
+                </div>
+              </div>
+              <div class="number-row">
+                <span class="label">后区:</span>
+                <div class="numbers back">
+                  <span
+                    v-for="(num, idx) in saved.back_numbers"
+                    :key="`saved-back-${idx}`"
+                    class="number"
+                  >
+                    {{ num }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="saved-prediction-meta">
+              <span class="confidence">置信度: {{ (saved.confidence_score * 100).toFixed(1) }}%</span>
+              <span class="date">{{ formatDate(saved.created_at) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Details Dialog -->
     <el-dialog
       v-model="detailsVisible"
@@ -291,6 +381,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElButton, ElSelect, ElOption, ElCheckbox, ElTag, ElProgress, ElTable, ElTableColumn, ElDialog, ElIcon, ElAlert } from 'element-plus'
 import PredictionDisplay from './PredictionDisplay.vue'
 import { generateAllPredictions as apiGenerateAllPredictions, getPredictionComparison } from '@/api/superLotto'
+import { useSuperLottoApi } from '@/api/superLotto'
 
 // Types
 interface PredictionAlgorithm {
@@ -306,16 +397,22 @@ interface PredictionConfig {
 }
 
 interface BatchResult {
-  id: number
-  request_id: string
+  success: boolean
+  message: string
+  total_predictions_generated: number
+  returned_predictions: number
   predictions: any[]
-  generated_at: string
-  total_predictions: number
-  successful_predictions: number
-  failed_predictions: number
-  processing_time_ms: number
-  analysis_period_days: number
-  sample_size: number
+  ensemble_recommendation?: any
+  comparison_analysis?: any
+  metadata: {
+    historical_draws_analyzed: number
+    algorithms_used: string[]
+    analysis_period_days: number
+    analysis_completed_at: string
+    draw_number?: string
+    processing_time_ms: number
+    version: string
+  }
 }
 
 interface PredictionResult {
@@ -348,6 +445,15 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const router = useRouter()
+
+// API
+const { savePrediction, getSavedPredictions, deletePrediction, executeRequest } = useSuperLottoApi()
+
+// State
+const savedPredictions = ref<any[]>([])
+const showSavedPredictions = ref(false)
+const isSaving = ref(false)
+const isLoadingPredictions = ref(false)
 
 const goBack = () => {
   if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -448,24 +554,20 @@ const generateAllPredictions = async () => {
     console.log('🚀 [OneClick] Generating predictions with request:', request)
 
     const response = await apiGenerateAllPredictions(request)
-    
+
     if (response.success && response.data) {
       batchResult.value = response.data
-      
+
       // Generate comparison data (optional, don't block on errors)
       generateComparison().catch(err => {
         console.warn('Comparison generation failed (non-critical):', err)
       })
 
-      const successMsg = response.data.successful_predictions > 0
-        ? `成功生成 ${response.data.successful_predictions} 个预测结果`
+      const successMsg = response.data.returned_predictions > 0
+        ? `成功生成 ${response.data.returned_predictions} 个预测结果`
         : '预测完成，但没有成功的结果'
-      
-      if (response.data.failed_predictions > 0) {
-        ElMessage.warning(`${successMsg}，${response.data.failed_predictions} 个算法失败`)
-      } else {
-        ElMessage.success(successMsg)
-      }
+
+      ElMessage.success(successMsg)
     } else {
       const errorMsg = response.error?.message || response.error?.code || '生成预测失败'
       console.error('❌ [OneClick] API returned error:', response.error)
@@ -486,13 +588,112 @@ const generateComparison = async () => {
 
   try {
     console.log('🔍 [OneClick] Generating comparison for request_id:', batchResult.value.request_id)
-    // Note: getPredictionComparison currently expects drawNumber and days, 
+    // Note: getPredictionComparison currently expects drawNumber and days,
     // but backend expects batch_request_id. This is a known limitation.
     // For now, we'll skip comparison or use a workaround
     console.warn('⚠️ [OneClick] Comparison feature needs backend update to support batch_request_id')
   } catch (error: any) {
     console.error('❌ [OneClick] Failed to generate comparison:', error)
     // Don't show error to user as comparison is optional
+  }
+}
+
+const savePredictionResult = async (prediction: any) => {
+  if (isSaving.value) return
+
+  isSaving.value = true
+
+  try {
+    console.log('💾 [OneClick] Saving prediction:', prediction)
+    console.log('💾 [OneClick] Prediction algorithm:', prediction.algorithm)
+    console.log('💾 [OneClick] Front numbers:', prediction.front_numbers)
+    console.log('💾 [OneClick] Back numbers:', prediction.back_numbers)
+
+    const saveData = {
+      algorithm: prediction.algorithm,
+      front_numbers: prediction.front_numbers,
+      back_numbers: prediction.back_numbers,
+      confidence_score: prediction.confidence_score,
+      reasoning: prediction.reasoning ? JSON.stringify(prediction.reasoning) : '',
+      analysis_period_days: prediction.analysis_period_days || 90,
+      sample_size: prediction.sample_size || 100
+    }
+
+    console.log('💾 [OneClick] Save data to send:', saveData)
+
+    const result = await savePrediction(saveData)
+
+    if (result) {
+      ElMessage.success(`预测结果已保存 (ID: ${result.prediction_id})`)
+
+      // Refresh saved predictions list if it's visible
+      if (showSavedPredictions.value) {
+        await loadSavedPredictions()
+      }
+    } else {
+      throw new Error('保存预测结果失败')
+    }
+
+  } catch (error: any) {
+    console.error('❌ [OneClick] Failed to save prediction:', error)
+    ElMessage.error(`保存失败: ${error?.message || '未知错误'}`)
+  } finally {
+    isSaving.value = false
+  }
+}
+
+const loadSavedPredictions = async () => {
+  if (isLoadingPredictions.value) return
+
+  isLoadingPredictions.value = true
+
+  try {
+    console.log('📋 [OneClick] Loading saved predictions')
+
+    const result = await getSavedPredictions({ limit: 20 })
+
+    if (result && result.predictions) {
+      savedPredictions.value = result.predictions
+      console.log(`✅ [OneClick] Loaded ${result.predictions.length} saved predictions`)
+    } else {
+      savedPredictions.value = []
+    }
+
+  } catch (error: any) {
+    console.error('❌ [OneClick] Failed to load saved predictions:', error)
+    ElMessage.error(`加载保存的预测失败: ${error?.message || '未知错误'}`)
+    savedPredictions.value = []
+  } finally {
+    isLoadingPredictions.value = false
+  }
+}
+
+const deleteSavedPrediction = async (predictionId: number) => {
+  try {
+    console.log('🗑️ [OneClick] Deleting prediction:', predictionId)
+
+    const result = await deletePrediction(predictionId)
+
+    if (result) {
+      ElMessage.success('预测结果已删除')
+
+      // Remove from local list
+      savedPredictions.value = savedPredictions.value.filter(p => p.id !== predictionId)
+    } else {
+      throw new Error('删除预测结果失败')
+    }
+
+  } catch (error: any) {
+    console.error('❌ [OneClick] Failed to delete prediction:', error)
+    ElMessage.error(`删除失败: ${error?.message || '未知错误'}`)
+  }
+}
+
+const toggleSavedPredictions = () => {
+  showSavedPredictions.value = !showSavedPredictions.value
+
+  if (showSavedPredictions.value && savedPredictions.value.length === 0) {
+    loadSavedPredictions()
   }
 }
 
@@ -581,6 +782,28 @@ const getVoteCount = (number: number, zone: 'front' | 'back'): number => {
     (v: any) => v.number === number && v.zone === zone.toUpperCase()
   )
   return vote?.votes || 0
+}
+
+const getAlgorithmDisplayName = (algorithm: string): string => {
+  const displayMap: Record<string, string> = {
+    'WEIGHTED_FREQUENCY': '加权频率',
+    'PATTERN_BASED': '模式分析',
+    'MARKOV_CHAIN': '马尔可夫链',
+    'ENSEMBLE': '集成方法',
+    'HOT_NUMBERS': '热号预测',
+    'COLD_NUMBERS': '冷号预测',
+    'POSITION_ANALYSIS': '位置分析'
+  }
+  return displayMap[algorithm] || algorithm
+}
+
+const formatDate = (dateString: string): string => {
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('zh-CN')
+  } catch {
+    return dateString
+  }
 }
 
 // Lifecycle
@@ -973,5 +1196,106 @@ onMounted(() => {
   .consensus-back {
     justify-content: center;
   }
+
+  .saved-predictions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Saved Predictions Styles */
+.saved-predictions-section {
+  margin-top: 30px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header h3 {
+  color: #2c3e50;
+  margin: 0;
+}
+
+.saved-predictions-content {
+  min-height: 100px;
+}
+
+.loading-state,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #7f8c8d;
+  gap: 10px;
+}
+
+.saved-predictions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.saved-prediction-card {
+  background: white;
+  border-radius: 6px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #ecf0f1;
+  transition: all 0.3s ease;
+}
+
+.saved-prediction-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.saved-prediction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.algorithm-name {
+  font-weight: 600;
+  color: #2c3e50;
+  background: #e3f2fd;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.saved-prediction-numbers {
+  margin-bottom: 12px;
+}
+
+.saved-prediction-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #7f8c8d;
+}
+
+.saved-prediction-meta .confidence {
+  background: #e8f5e8;
+  color: #27ae60;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.saved-prediction-meta .date {
+  color: #95a5a6;
 }
 </style>

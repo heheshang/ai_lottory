@@ -92,7 +92,7 @@
                 <div class="pattern-stats">
                   <span>出现次数: {{ pattern.count }}</span>
                   <span v-if="pattern.avgValue !== null">
-                    平均值: {{ pattern.avgValue?.toFixed(2) }}
+                    平均值: {{ pattern.avgValue.toFixed(2) }}
                   </span>
                 </div>
               </div>
@@ -173,7 +173,7 @@
 
             <!-- Sum Range Analysis -->
             <div v-if="currentTab === 'sum_range'" class="analysis-panel">
-              <SumRangeAnalysisChart :ranges="getPatternData('sum_range')" />
+              <SumRangeAnalysis :ranges="getPatternData('sum_range')" />
               <div class="pattern-details">
                 <h4>数值范围详细分析</h4>
                 <div class="insights">
@@ -244,7 +244,7 @@ import { useSuperLottoStore } from '@/stores/superLotto'
 import ConsecutivePatternsChart from '@/components/super-lotto/ConsecutivePatternsChart.vue'
 import GapPatternsChart from '@/components/super-lotto/GapPatternsChart.vue'
 import OddEvenDistributionChart from '@/components/super-lotto/OddEvenDistributionChart.vue'
-import SumRangeAnalysisChart from '@/components/super-lotto/SumRangeAnalysis.vue'
+import SumRangeAnalysis from '@/components/super-lotto/SumRangeAnalysis.vue'
 import PositionPatternsChart from '@/components/super-lotto/PositionPatternsChart.vue'
 
 // Define interface for pattern summary objects
