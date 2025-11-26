@@ -68,7 +68,8 @@
       "Bash(.specify/scripts/bash/create-new-feature.sh:*)",
       "Bash(.specify/scripts/bash/setup-plan.sh:*)",
       "Bash(.specify/scripts/bash/update-agent-context.sh:*)",
-      "Bash(.speckit.implement)"
+      "Bash(.speckit.implement)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
