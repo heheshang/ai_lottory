@@ -289,3 +289,10 @@ struct NumberStatistics {
 - Cache analysis results where appropriate
 - Optimize Vue component rendering with proper keys
 - Use lazy loading for large data sets
+
+## Active Technologies
+- Rust 1.75+ (backend), TypeScript 5.0+ (frontend) + Tauri 2.0, Vue 3 Composition API, Pinia, SQLx, nalgebra, statrs (003-code-refactor)
+- SQLite database with connection pooling (003-code-refactor)
+
+## Recent Changes
+- 003-code-refactor: Added Rust 1.75+ (backend), TypeScript 5.0+ (frontend) + Tauri 2.0, Vue 3 Composition API, Pinia, SQLx, nalgebra, statrs

@@ -63,7 +63,12 @@
       "Bash(npm test:*)",
       "Bash(npx tsc:*)",
       "Bash(npx vue-tsc:*)",
-      "Bash(npx tauri dev:*)"
+      "Bash(npx tauri dev:*)",
+      "Bash(git fetch:*)",
+      "Bash(.specify/scripts/bash/create-new-feature.sh:*)",
+      "Bash(.specify/scripts/bash/setup-plan.sh:*)",
+      "Bash(.specify/scripts/bash/update-agent-context.sh:*)",
+      "Bash(.speckit.implement)"
     ],
     "deny": [],
     "ask": []
