@@ -1,0 +1,951 @@
+openapi: 3.0.3
+info:
+  title: Lottery Prediction API
+  description: Enhanced API for lottery prediction and analysis features
+  version: 2.0.0
+  contact:
+    name: API Support
+    email: support@lottery-app.com
+
+servers:
+  - url: tauri://localhost
+    description: Tauri local application
+
+paths:
+  # Authentication endpoints
+  /auth/login:
+    post:
+      summary: User login
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      summary: User logout
+      operationId: logout
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  # Lottery data endpoints
+  /lottery/draws:
+    get:
+      summary: Get lottery draw history
+      operationId: getLotteryHistory
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Lottery draws retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SuperLottoDraw'
+
+    post:
+      summary: Add new lottery draw
+      operationId: addLotteryDraw
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLotteryDrawRequest'
+      responses:
+        '201':
+          description: Draw created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SuperLottoDraw'
+
+  # Analysis endpoints
+  /analysis/hot-cold:
+    get:
+      summary: Get hot and cold numbers analysis
+      operationId: getHotColdAnalysis
+      parameters:
+        - name: period_days
+          in: query
+          schema:
+            type: integer
+            minimum: 30
+            maximum: 1825
+            default: 365
+        - name: hot_threshold
+          in: query
+          schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            default: 0.7
+        - name: cold_threshold
+          in: query
+          schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            default: 0.3
+      responses:
+        '200':
+          description: Hot/cold analysis completed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/HotColdAnalysis'
+
+  /analysis/patterns:
+    get:
+      summary: Get pattern analysis results
+      operationId: getPatternAnalysis
+      parameters:
+        - name: pattern_type
+          in: query
+          schema:
+            $ref: '#/components/schemas/PatternType'
+        - name: period_days
+          in: query
+          schema:
+            type: integer
+            minimum: 30
+            maximum: 1825
+            default: 365
+      responses:
+        '200':
+          description: Pattern analysis completed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PatternAnalysisResult'
+
+  /analysis/statistics/{number}:
+    get:
+      summary: Get detailed statistics for a specific number
+      operationId: getNumberStatistics
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 35
+        - name: period_days
+          in: query
+          schema:
+            type: integer
+            minimum: 30
+            maximum: 1825
+            default: 365
+      responses:
+        '200':
+          description: Number statistics retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NumberStatistics'
+
+  # Prediction endpoints
+  /predictions/generate:
+    post:
+      summary: Generate new prediction
+      operationId: generatePrediction
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeneratePredictionRequest'
+      responses:
+        '200':
+          description: Prediction generated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PredictionResult'
+
+  /predictions/batch:
+    post:
+      summary: Generate multiple predictions with different algorithms
+      operationId: generateBatchPredictions
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchPredictionRequest'
+      responses:
+        '200':
+          description: Batch predictions generated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/BatchPredictionResult'
+
+  /predictions/markov:
+    post:
+      summary: Generate Markov chain prediction
+      operationId: generateMarkovPrediction
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkovPredictionRequest'
+      responses:
+        '200':
+          description: Markov prediction generated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PredictionResult'
+
+  /predictions/save:
+    post:
+      summary: Save prediction for user
+      operationId: savePrediction
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavePredictionRequest'
+      responses:
+        '201':
+          description: Prediction saved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserPrediction'
+
+  /predictions/user:
+    get:
+      summary: Get user's saved predictions
+      operationId: getUserPredictions
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: algorithm
+          in: query
+          schema:
+            $ref: '#/components/schemas/PredictionAlgorithm'
+        - name: favorite_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: User predictions retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserPrediction'
+
+  # Cache management endpoints
+  /cache/status:
+    get:
+      summary: Get cache status and statistics
+      operationId: getCacheStatus
+      responses:
+        '200':
+          description: Cache status retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CacheStatus'
+
+  /cache/invalidate:
+    delete:
+      summary: Invalidate cache entries
+      operationId: invalidateCache
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvalidateCacheRequest'
+      responses:
+        '200':
+          description: Cache invalidated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+components:
+  schemas:
+    # Authentication schemas
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        password:
+          type: string
+          minLength: 6
+          maxLength: 100
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        token:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    # Core data schemas
+    SuperLottoDraw:
+      type: object
+      properties:
+        id:
+          type: string
+        drawDate:
+          type: string
+          format: date-time
+        frontZone:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 35
+          minItems: 5
+          maxItems: 5
+        backZone:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 12
+          minItems: 2
+          maxItems: 2
+        jackpotAmount:
+          type: number
+          minimum: 0
+        drawNumber:
+          type: integer
+          minimum: 1
+        season:
+          type: string
+        specialDraw:
+          type: boolean
+        createdDate:
+          type: string
+          format: date-time
+
+    CreateLotteryDrawRequest:
+      type: object
+      required:
+        - drawDate
+        - frontZone
+        - backZone
+      properties:
+        drawDate:
+          type: string
+          format: date-time
+        frontZone:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 35
+          minItems: 5
+          maxItems: 5
+        backZone:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 12
+          minItems: 2
+          maxItems: 2
+        jackpotAmount:
+          type: number
+          minimum: 0
+        specialDraw:
+          type: boolean
+          default: false
+
+    # Analysis schemas
+    PatternType:
+      type: string
+      enum:
+        - consecutive_numbers
+        - odd_even_distribution
+        - sum_ranges
+        - prime_distribution
+        - gap_analysis
+        - positional_patterns
+
+    PatternAnalysisResult:
+      type: object
+      properties:
+        id:
+          type: string
+        analysisType:
+          $ref: '#/components/schemas/PatternType'
+        periodDays:
+          type: integer
+          minimum: 30
+        sampleSize:
+          type: integer
+          minimum: 1
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        analysisData:
+          type: object
+          additionalProperties: true
+        createdDate:
+          type: string
+          format: date-time
+        algorithm:
+          type: string
+        version:
+          type: string
+
+    NumberStatistics:
+      type: object
+      properties:
+        number:
+          type: integer
+          minimum: 1
+          maximum: 35
+        totalAppearances:
+          type: integer
+          minimum: 0
+        totalDraws:
+          type: integer
+          minimum: 1
+        frequency:
+          type: number
+          minimum: 0
+          maximum: 1
+        currentGap:
+          type: integer
+          minimum: 0
+        averageGap:
+          type: number
+          minimum: 0
+        trend:
+          type: string
+          enum:
+            - increasing
+            - decreasing
+            - stable
+        momentum:
+          type: number
+        consistency:
+          type: number
+          minimum: 0
+          maximum: 1
+        lastUpdated:
+          type: string
+          format: date-time
+
+    HotColdAnalysis:
+      type: object
+      properties:
+        periodDays:
+          type: integer
+          minimum: 30
+        analysisDate:
+          type: string
+          format: date-time
+        hotNumbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/NumberStatistics'
+        coldNumbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/NumberStatistics'
+        hotThreshold:
+          type: number
+          minimum: 0
+          maximum: 1
+        coldThreshold:
+          type: number
+          minimum: 0
+          maximum: 1
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        sampleSize:
+          type: integer
+          minimum: 1
+
+    # Prediction schemas
+    PredictionAlgorithm:
+      type: string
+      enum:
+        - hot_cold
+        - frequency
+        - markov_chain
+        - pattern_based
+        - neural_network
+        - ensemble
+
+    PredictionResult:
+      type: object
+      properties:
+        id:
+          type: string
+        algorithm:
+          $ref: '#/components/schemas/PredictionAlgorithm'
+        frontZone:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 35
+          minItems: 5
+          maxItems: 5
+        backZone:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 12
+          minItems: 2
+          maxItems: 2
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        reasoning:
+          type: object
+          additionalProperties: true
+        analysisPeriod:
+          type: integer
+          minimum: 30
+        sampleSize:
+          type: integer
+          minimum: 1
+        predictionScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        riskLevel:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+        createdDate:
+          type: string
+          format: date-time
+        version:
+          type: string
+
+    GeneratePredictionRequest:
+      type: object
+      required:
+        - algorithm
+      properties:
+        algorithm:
+          $ref: '#/components/schemas/PredictionAlgorithm'
+        analysisPeriod:
+          type: integer
+          minimum: 30
+          maximum: 1825
+          default: 365
+        options:
+          type: object
+          additionalProperties: true
+
+    BatchPredictionRequest:
+      type: object
+      required:
+        - algorithms
+      properties:
+        algorithms:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictionAlgorithm'
+          minItems: 1
+          maxItems: 10
+        analysisPeriod:
+          type: integer
+          minimum: 30
+          maximum: 1825
+          default: 365
+        options:
+          type: object
+          additionalProperties: true
+
+    BatchPredictionResult:
+      type: object
+      properties:
+        predictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictionResult'
+        totalPredictions:
+          type: integer
+        successfulPredictions:
+          type: integer
+        processingTime:
+          type: integer
+          description: Processing time in milliseconds
+
+    MarkovPredictionRequest:
+      type: object
+      required:
+        - order
+      properties:
+        order:
+          type: integer
+          minimum: 1
+          maximum: 3
+          default: 1
+        analysisPeriod:
+          type: integer
+          minimum: 30
+          maximum: 1825
+          default: 365
+        timeDecayFactor:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.9
+
+    # User schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        lastLogin:
+          type: string
+          format: date-time
+        predictionsCreated:
+          type: integer
+          minimum: 0
+        accuracyRate:
+          type: number
+          minimum: 0
+          maximum: 1
+        createdDate:
+          type: string
+          format: date-time
+        subscriptionTier:
+          type: string
+          enum:
+            - free
+            - premium
+            - enterprise
+
+    UserPrediction:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        predictionResult:
+          $ref: '#/components/schemas/PredictionResult'
+        savedDate:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        actualResult:
+          type: string
+        accuracy:
+          $ref: '#/components/schemas/AccuracyResult'
+        isFavorite:
+          type: boolean
+        isShared:
+          type: boolean
+        shareCode:
+          type: string
+        viewCount:
+          type: integer
+          minimum: 0
+
+    SavePredictionRequest:
+      type: object
+      required:
+        - prediction
+      properties:
+        prediction:
+          $ref: '#/components/schemas/PredictionResult'
+        notes:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isFavorite:
+          type: boolean
+          default: false
+
+    AccuracyResult:
+      type: object
+      properties:
+        correctFrontNumbers:
+          type: integer
+          minimum: 0
+          maximum: 5
+        correctBackNumbers:
+          type: integer
+          minimum: 0
+          maximum: 2
+        totalAccuracy:
+          type: number
+          minimum: 0
+          maximum: 1
+        tier:
+          type: string
+          enum:
+            - exact
+            - close
+            - partial
+            - miss
+        points:
+          type: integer
+          minimum: 0
+
+    # Cache schemas
+    CacheStatus:
+      type: object
+      properties:
+        totalEntries:
+          type: integer
+          minimum: 0
+        totalSize:
+          type: integer
+          minimum: 0
+        hitRate:
+          type: number
+          minimum: 0
+          maximum: 1
+        lastCleanup:
+          type: string
+          format: date-time
+        entries:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              dataType:
+                type: string
+              createdDate:
+                type: string
+                format: date-time
+              lastAccessed:
+                type: string
+                format: date-time
+              expiryDate:
+                type: string
+                format: date-time
+              size:
+                type: integer
+                minimum: 0
+
+    InvalidateCacheRequest:
+      type: object
+      required:
+        - keys
+      properties:
+        keys:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        pattern:
+          type: string
+          description: Pattern match for cache keys
+
+    # Common schemas
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          additionalProperties: true
+        error:
+          $ref: '#/components/schemas/ErrorResponse'
+        processingTime:
+          type: integer
+          description: Processing time in milliseconds
+        cached:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+        - timestamp
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        suggestions:
+          type: array
+          items:
+            type: string
+        timestamp:
+          type: string
+          format: date-time
+        requestId:
+          type: string
+
+  securitySchemes:
+    sessionAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
