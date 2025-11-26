@@ -19,8 +19,6 @@ import type {
   ErrorInfo,
   SearchParams,
   PaginationParams
-} from '@/types/superLotto'
-import { createApiResponse, createApiError } from '@/types/superLotto'
 import { VALIDATION_RULES } from '@/constants/lottery'
 
 import { handleError, ErrorCode, createSafeAsyncFunction } from '@/utils/errorHandler'
@@ -527,7 +525,6 @@ class SuperLottoApi {
 // API Instance
 // =============================================================================
 
-export const superLottoApi = new SuperLottoApi()
 
 // =============================================================================
 // Vue Composable for API Usage
@@ -635,27 +632,10 @@ export function useSuperLottoApi() {
     resetStats,
 
     // API methods (wrapped with error handling)
-    getDraws: (params?: any) => executeRequest(() => superLottoApi.getDraws(params)),
-    getDrawById: (id: number) => executeRequest(() => superLottoApi.getDrawById(id)),
-    importDraws: (draws: any[]) => executeRequest(() => superLottoApi.importDraws(draws)),
-    analyzeHotNumbers: (params: any) => executeRequest(() => superLottoApi.analyzeHotNumbers(params)),
-    analyzeColdNumbers: (params: any) => executeRequest(() => superLottoApi.analyzeColdNumbers(params)),
-    analyzePatterns: (params: any) => executeRequest(() => superLottoApi.analyzePatterns(params)),
-    generatePrediction: (params: any) => executeRequest(() => superLottoApi.generatePrediction(params)),
-    getPredictions: (params?: any) => executeRequest(() => superLottoApi.getPredictions(params)),
-    validatePrediction: (id: string) => executeRequest(() => superLottoApi.validatePrediction(id)),
     generateBatchPredictions: (request: BatchPredictionRequest) =>
-      executeRequest(() => superLottoApi.generateBatchPredictions(request)),
-    getUnifiedTableData: (params?: any) => executeRequest(() => superLottoApi.getUnifiedTableData(params)),
-    exportData: (request: ExportRequest) => executeRequest(() => superLottoApi.exportData(request)),
     validateSuperLottoNumbers: (redNumbers: number[], blueNumber: number) =>
-      executeRequest(() => superLottoApi.validateSuperLottoNumbers(redNumbers, blueNumber)),
-    healthCheck: () => executeRequest(() => superLottoApi.healthCheck()),
 
     // Prediction save/load operations
-    savePrediction: (prediction: any) => executeRequest(() => superLottoApi.savePrediction(prediction)),
-    getSavedPredictions: (params?: any) => executeRequest(() => superLottoApi.getSavedPredictions(params)),
-    deletePrediction: (predictionId: number) => executeRequest(() => superLottoApi.deletePrediction(predictionId))
   }
 }
 
@@ -665,16 +645,13 @@ export function useSuperLottoApi() {
 
 // Export legacy functions for backward compatibility
 export const generateAllPredictions = createSafeAsyncFunction(
-  (request: BatchPredictionRequest) => superLottoApi.generateBatchPredictions(request)
 )
 
 export const getPredictionComparison = createSafeAsyncFunction(
-  (drawNumber: number, days?: number) => superLottoApi.getPredictionComparison(drawNumber, days)
 )
 
 export const getUnifiedTableData = createSafeAsyncFunction(
   (limit: number = 100, offset: number = 0, includePredictions: boolean = true, algorithmIds?: AlgorithmId[]) =>
-    superLottoApi.getUnifiedTableData({ 
       limit: limit as any, 
       offset: offset as any, 
       include_predictions: includePredictions, 
@@ -683,7 +660,6 @@ export const getUnifiedTableData = createSafeAsyncFunction(
 )
 
 export const exportTableData = createSafeAsyncFunction(
-  (exportRequest: ExportRequest) => superLottoApi.exportData(exportRequest)
 )
 
 console.log('🔗 [Super Lotto API] Enhanced API client initialized with error handling')

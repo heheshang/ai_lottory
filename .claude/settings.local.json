@@ -69,7 +69,9 @@
       "Bash(.specify/scripts/bash/setup-plan.sh:*)",
       "Bash(.specify/scripts/bash/update-agent-context.sh:*)",
       "Bash(.speckit.implement)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(./scripts/cleanup-monolithic-store.sh:*)",
+      "Bash(./scripts/cleanup-simple.sh:*)"
     ],
     "deny": [],
     "ask": []

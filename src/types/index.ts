@@ -97,7 +97,6 @@ export type LotteryType = 'powerball' | 'megamillions' | 'lotto' | 'custom'
 export { ErrorCode, ErrorCategory } from '@/utils/errorHandler'
 
 // Re-export from specific modules
-export * from './superLotto'
 
 // Reference Tauri types
 /// <reference path="./tauri.d.ts" />

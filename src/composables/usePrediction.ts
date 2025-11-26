@@ -4,7 +4,6 @@
  */
 
 import { ref, computed, type Ref } from 'vue'
-import { useSuperLottoStore } from '@/stores/superLotto'
 import type { PredictionResult, PredictionParams, AlgorithmId } from '@/types/superLotto'
 
 export interface UsePredictionOptions {
@@ -20,7 +19,6 @@ export function usePrediction(options: UsePredictionOptions = {}) {
     defaultPeriod = 90
   } = options
 
-  const store = useSuperLottoStore()
 
   // Local state
   const selectedAlgorithm = ref(defaultAlgorithm)
